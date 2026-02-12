@@ -1,0 +1,20 @@
+{
+  "name": "@increase21/simplenodejs",
+  "version": "1.0.0",
+  "description": "Lightweight Node.js HTTP framework with middleware and plugins",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "node dist/test.js"
+  },
+  "keywords": ["http", "framework", "node", "typescript"],
+  "author": "Increase Nkanta",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}
