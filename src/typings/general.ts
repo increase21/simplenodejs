@@ -20,6 +20,7 @@ export interface SimpleJsServer extends http.Server {
   use(mw: Middleware): Promise<any> | void;
   useError: (mw: ErrorMiddleware) => void;
   register: (plugin: Plugin, opts?: any) => Promise<void>;
+  _environment: 'dev' | 'stag' | 'live'
 }
 
 export interface RequestObject extends IncomingMessage {
@@ -35,8 +36,6 @@ export interface ResponseObject extends ServerResponse {
   text: (value?: string) => void;
 }
 
-
-
 export interface SubRequestHandler {
   post?: (params: PrivateMethodProps) => void;
   put?: (params: PrivateMethodProps) => void;
@@ -44,7 +43,6 @@ export interface SubRequestHandler {
   delete?: (params: PrivateMethodProps) => void;
   patch?: (params: PrivateMethodProps) => void;
 }
-
 
 export interface PrivateMethodProps {
   body: ObjectPayload;
