@@ -1,5 +1,5 @@
 import http, { IncomingMessage, ServerResponse } from "http";
-import { route } from "./router";
+import { route, setControllersDir } from "./router";
 import crypto from "node:crypto"
 import { ErrorMiddleware, Middleware, Plugin, RequestObject, ResponseObject, SimpleJsServer } from "./typings/general";
 import { composeWithError } from "./utils/helpers";
@@ -25,10 +25,15 @@ const extension = (req: RequestObject, res: ResponseObject): void => {
   res.setHeader("X-Request-Id", req.id);
 }
 
-export const CreateSimpleJsHttpServer = (handler?: (req: IncomingMessage, res: ServerResponse) => void) => {
+export const CreateSimpleJsHttpServer = (handler?: (req: IncomingMessage, res: ServerResponse) => void, opts?: {
+  controllersDir: string
+}) => {
   const middlewares: Middleware[] = [];
   const errorMiddlewares: ErrorMiddleware[] = [];
   const plugins: Plugin[] = [];
+  //set the director of the controller
+  if (opts?.controllersDir) setControllersDir(opts.controllersDir);
+
   const server = http.createServer(async (req, res) => {
     extension(req, res as ResponseObject)
     const run = composeWithError(middlewares, errorMiddlewares);
@@ -54,9 +59,9 @@ export const CreateSimpleJsHttpServer = (handler?: (req: IncomingMessage, res: S
 
   server.use = mw => { middlewares.push(mw) }
   server.useError = mw => errorMiddlewares.push(mw);
-  server.register = async (plugin, opts) => {
+  server.registerPlugin = async (plugin) => {
     plugins.push(plugin);
-    await plugin(server, opts);
+    await plugin(server);
   };
   return server;
 }

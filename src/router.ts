@@ -2,6 +2,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { RequestObject, ResponseObject } from "./typings/general";
+let controllers = new Map<string, ControllerMeta>();
 
 export interface ControllerMeta {
   name: string;
@@ -36,7 +37,9 @@ export function loadControllers(root = "controllers"): Map<string, ControllerMet
   return map;
 }
 
-const controllers = loadControllers();
+export function setControllersDir(dir: string) {
+  controllers = loadControllers(dir);
+}
 
 export async function route(req: RequestObject, res: ResponseObject, controllersDir?: string) {
   // console.log("Router is called")

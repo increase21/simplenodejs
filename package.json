@@ -4,14 +4,22 @@
   "description": "Lightweight Node.js HTTP framework with middleware and plugins",
   "dev": "dist/index.js",
   "bugs": "https://github.com/increase21/simplenodejs/issues",
+  "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/increase21/simplenodejs.git",
     "directory": ""
   },
   "files": [
-    "dist/**/*"
+    "dist"
   ],
   "scripts": {
     "build": "tsc",

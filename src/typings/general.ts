@@ -19,15 +19,16 @@ export type ErrorMiddleware = (
 export interface SimpleJsServer extends http.Server {
   use(mw: Middleware): Promise<any> | void;
   useError: (mw: ErrorMiddleware) => void;
-  register: (plugin: Plugin, opts?: any) => Promise<void>;
+  registerPlugin: (plugin: Plugin) => Promise<void>;
   _environment: 'dev' | 'stag' | 'live'
 }
 
 export interface RequestObject extends IncomingMessage {
   body?: any;
   query?: any;
-  _server_environment?: 'dev' | 'stag' | 'live'
   id?: string
+  _server_environment?: 'dev' | 'stag' | 'live'
+  _custom_data?: ObjectPayload
 }
 
 export interface ResponseObject extends ServerResponse {
