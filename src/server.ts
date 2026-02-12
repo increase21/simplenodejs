@@ -1,8 +1,8 @@
-
 import http, { IncomingMessage, ServerResponse } from "http";
 import { route } from "./router";
-
+import crypto from "node:crypto"
 import { ErrorMiddleware, Middleware, Plugin, RequestObject, ResponseObject, SimpleJsServer } from "./typings/general";
+import { composeWithError } from "./utils/helpers";
 
 const extension = (req: RequestObject, res: ResponseObject): void => {
   //for response status
@@ -21,27 +21,8 @@ const extension = (req: RequestObject, res: ResponseObject): void => {
     res.setHeader('Content-Type', 'text/plain')
     res.end(param)
   }
-}
-
-
-export function compose(middlewares: Middleware[]) {
-  return async function (req: RequestObject, res: ResponseObject) {
-    let idx = -1;
-    async function dispatch(i: number): Promise<void> {
-      if (i <= idx) throw new Error("next() called twice");
-      idx = i;
-      const fn = middlewares[i];
-      if (!fn) return;
-      try {
-        await fn(req, res, () => dispatch(i + 1));
-      } catch (err) {
-        if (!res.writableEnded) {
-          res.status(500).json({ error: "Middleware error" });
-        }
-      }
-    }
-    await dispatch(0);
-  };
+  req.id = crypto.randomUUID();
+  res.setHeader("X-Request-Id", req.id);
 }
 
 export const CreateSimpleJsHttpServer = (handler?: (req: IncomingMessage, res: ServerResponse) => void) => {
@@ -50,7 +31,7 @@ export const CreateSimpleJsHttpServer = (handler?: (req: IncomingMessage, res: S
   const plugins: Plugin[] = [];
   const server = http.createServer(async (req, res) => {
     extension(req, res as ResponseObject)
-    const run = compose(middlewares);
+    const run = composeWithError(middlewares, errorMiddlewares);
     try {
       handler && await handler(req, res)
       if (res.writableEnded) return;
@@ -59,12 +40,17 @@ export const CreateSimpleJsHttpServer = (handler?: (req: IncomingMessage, res: S
       if (res.writableEnded) return;
       await route(req as RequestObject, res as ResponseObject)
     } catch (err) {
-      res.statusCode = 500;
-      res.end("Internal Server Error");
+      // 1. Run error middlewares
+      for (const mw of errorMiddlewares) {
+        await mw(err, req as RequestObject, res as ResponseObject, () => { });
+      }
+      // 2. Safe HTTP response fallback
+      if (!res.headersSent) {
+        res.statusCode = 503;
+        res.end("Service unavailable at the moment");
+      }
     }
   }) as SimpleJsServer;
-
-  server.setTimeout(60_000) //60Seconds
 
   server.use = mw => { middlewares.push(mw) }
   server.useError = mw => errorMiddlewares.push(mw);

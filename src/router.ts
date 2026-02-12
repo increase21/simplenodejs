@@ -1,11 +1,10 @@
 // router.ts
 import fs from "node:fs";
 import path from "node:path";
-import { RequestObject, ResponseObject } from "./typings/context";
+import { RequestObject, ResponseObject } from "./typings/general";
 
 export interface ControllerMeta {
   name: string;
-  file: string;
   Controller: any;
 }
 
@@ -23,11 +22,12 @@ export function loadControllers(root = "controllers"): Map<string, ControllerMet
       //if it's file load the file
       else if (file.endsWith(".js") || file.endsWith(".ts")) {
         const mod = require(full);
-        const Controller = mod.default;
-        if (Controller) {
-          const key = full.replace(base, "").replace(/\\/g, "/").replace(/\.(ts|js)$/, "");
-          map.set(key.toLowerCase(), { name: Controller.name, file: full, Controller });
-        }
+        // const Controller = mod.default;
+        if (!full.startsWith(base)) return;
+        const Controller = require(full)?.default;
+        if (typeof Controller !== "function") return;
+        const key = full.replace(base, "").replace(/\\/g, "/").replace(/\.(ts|js)$/, "");
+        map.set(key.toLowerCase(), { name: Controller.name, Controller });
       }
     }
   }
@@ -43,24 +43,40 @@ export async function route(req: RequestObject, res: ResponseObject, controllers
   const url = new URL(req.url!, "http://localhost");
   const parts = url.pathname.replace(/^\/+|\/+$/g, "").split("/");
 
-  const controllerPath = "/" + parts.slice(0, -1).join("/");
-  const methodName = parts[parts.length - 1] || "index";
-  const id = parts[parts.length];
+  let controllerPath = (parts.length > 2 ? "/" + parts.slice(0, 2).join("/") : `/${parts.join("/")}`).toLocaleLowerCase()
+  let methodName = parts.length > 2 ? parts[2] : "index";
+  let id = methodName !== "index" ? parts.slice(parts.indexOf(methodName) + 1) : null
 
-  const meta = controllers.get(controllerPath.toLowerCase());
+  const meta = controllers.get(controllerPath);
 
-  if (!meta) return res.status(404).text("The requested resource does not exist")
+  //if the controller is not available or not found
+  if (!meta || !meta.name || !meta.Controller) return res.status(404).json({ error: "The requested resource does not exist" })
 
   const ControllerClass = meta.Controller;
-  const controller = new ControllerClass(req, res);
+  const controller = new ControllerClass();
 
+  //if the endpoint not a function
   if (typeof controller[methodName] !== "function") {
-    return res.status(404).text("The requested resource does not exist")
+    //if it's using index
+    if (typeof controller["index"] === "function" && parts.length === 3) {
+      methodName = "index"
+      id = parts.slice(2)
+    } else {
+      return res.status(404).json({ error: "The requested resource does not exist" })
+    }
   }
 
-  const result = await controller[methodName](id);
+  //if the data require params but there's no matching params
+  if (id && id.length && (!controller[methodName].length || controller[methodName].length < id.length)) {
+    return res.status(404).json({ error: "The requested resource does not exist. Kindly check your url" })
+  }
 
-  if (!res.writableEnded && result !== undefined) {
+  controller._bindContext({ req, res });
+
+  const result = await controller[methodName](...(id || []));
+
+  //if it's not responded
+  if (!res.writableEnded && result) {
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify(result));
   }
