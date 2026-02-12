@@ -1,13 +1,19 @@
-import { RequestObject, ResponseObject } from "../typings/context";
+import { RequestObject, ResponseObject } from "../typings/general";
 import qs from "node:querystring"
+import crypto from "node:crypto"
 import { ErrorMiddleware, Middleware, SimpleJsServer } from "../typings/general";
+import { SimpleJSBodyParseType, SimpleJSRateLimitType } from "../typings/simpletypes";
 // core/cors.ts
 export function SetRequestCORS(opts: { name: string, value: string }[]) {
   return async (req: RequestObject, res: ResponseObject, next: any) => {
     const defaults = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Headers": "Authorization",
-      "Access-Control-Allow-Methods": "GET, POST"
+      "Access-Control-Allow-Headers": "Origin, X-Requested-With, Content-Type, Accept, Authorization",
+      "Access-Control-Allow-Methods": "GET, POST, DELETE, PUT, PATCH",
+      "X-Content-Type-Options": "nosniff",
+      "X-Frame-Options": "DENY",
+      "Referrer-Policy": "no-referrer",
+      "Content-Security-Policy": "default-src 'none'",
     };
 
     let merged: Record<string, string> = { ...defaults };
@@ -17,7 +23,10 @@ export function SetRequestCORS(opts: { name: string, value: string }[]) {
     }
     //allow credentials only when origin specified
     if (merged["Access-Control-Allow-Credentials"] === "true") {
-      merged["Access-Control-Allow-Origin"] = req.headers.origin || "null";
+      const origin = req.headers.origin;
+      res.status(403).end();
+      if (!origin) return
+      merged["Access-Control-Allow-Origin"] = origin;
     }
 
     for (const [key, value] of Object.entries(merged)) {
@@ -25,7 +34,7 @@ export function SetRequestCORS(opts: { name: string, value: string }[]) {
     }
 
     if (req.method === "OPTIONS") {
-      res.status(204).text()
+      res.status(204).end()
       return
     }
 
@@ -34,34 +43,38 @@ export function SetRequestCORS(opts: { name: string, value: string }[]) {
 }
 
 // core/rateLimit.ts
-export function SetRateLimiter(opts: { windowMs: number; max: number; keyGenerator?: (req: any) => string }) {
+export function SetRateLimiter(opts: SimpleJSRateLimitType) {
   const store = new Map<string, { count: number; ts: number }>();
+  const timer = setInterval(() => {
+    const now = Date.now();
+    for (const [k, v] of store) {
+      if (now - v.ts > opts.windowMs * 2) store.delete(k);
+    }
+  }, opts.windowMs);
+
+  timer.unref();
 
   return async (req: RequestObject, res: ResponseObject, next: () => Promise<any> | void) => {
-    const key = opts.keyGenerator?.(req) || req.socket.remoteAddress || "global";
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
+    const rawIp = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
+    const ip = Array.isArray(rawIp) ? rawIp[0] : String(rawIp).split(",")[0].trim();
+    const key = String(opts.keyGenerator?.(req) || ip || "unknown");
     const now = Date.now();
 
-    const entry = store.get(key) || { count: 0, ts: now };
+    const entry = store.get(key as string) || { count: 0, ts: now };
     if (now - entry.ts > opts.windowMs) {
       entry.count = 0;
       entry.ts = now;
     }
 
     entry.count++;
-    store.set(key, entry);
+    store.set(key as string, entry);
 
     if (entry.count > opts.max) {
+      res.setHeader("Retry-After", Math.ceil(opts.windowMs / 1000));
       res.status(429).json({ error: "Too Many Requests" });
       return
     }
 
-    setInterval(() => {
-      const now = Date.now();
-      for (const [k, v] of store) {
-        if (now - v.ts > opts.windowMs * 2) store.delete(k);
-      }
-    }, opts.windowMs);
 
     await next();
   };
@@ -79,7 +92,7 @@ function SetBodyLimit(limit: string | number = "1mb") {
   return n;
 }
 
-export function SetBodyParser(opts: { limit?: string | number; json?: boolean }) {
+export function SetBodyParser(opts: SimpleJSBodyParseType) {
   const maxSize = SetBodyLimit(opts.limit);
 
   return async (req: RequestObject, res: ResponseObject, next: () => Promise<any> | void) => {
@@ -130,10 +143,7 @@ export function SetBodyParser(opts: { limit?: string | number; json?: boolean })
   };
 }
 
-export function composeWithError(
-  middlewares: Middleware[],
-  errorMiddlewares: ErrorMiddleware[]
-) {
+export function composeWithError(middlewares: Middleware[], errorMiddlewares: ErrorMiddleware[]) {
   return async function (req: RequestObject, res: ResponseObject) {
     let idx = -1;
 
@@ -164,10 +174,4 @@ export function composeWithError(
 
     await dispatch(0);
   };
-}
-
-export function SecurityPlugin(app: SimpleJsServer, opts: any) {
-  app.use(SetRequestCORS(opts.cors || []));
-  app.use(SetRateLimiter(opts.rateLimit || { windowMs: 1000, max: 100 }));
-  app.use(SetBodyParser(opts.body || { limit: "1mb" }));
 }
