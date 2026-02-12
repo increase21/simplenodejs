@@ -1,6 +1,6 @@
 {
   "name": "@increase21/simplenodejs",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Lightweight Node.js HTTP framework with middleware and plugins",
   "dev": "dist/index.js",
   "bugs": "https://github.com/increase21/simplenodejs/issues",
