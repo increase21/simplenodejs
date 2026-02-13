@@ -19,6 +19,7 @@ export class SimpleNodeJsController {
     this._custom_data = ctx.req._custom_data
   }
 
+  /** framework-internal method */
   __checkContext() { }
 
   protected RunRequest(handlers: SubRequestHandler, params: SimpleJsPrivateMethodProps) {
@@ -39,6 +40,10 @@ export class SimpleNodeJsController {
       return this.res.status(404).json({ code: 404, error: "Resource not found" });
     }
 
-    return runFn(params as SimpleJsPrivateMethodProps);
+    return runFn({
+      ...(params || {}), req: this.req,
+      res: this.res, query: this.query,
+      customData: this._custom_data
+    });
   }
 }
