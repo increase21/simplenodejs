@@ -1,5 +1,3 @@
 export { CreateSimpleJsHttpServer } from "./server";
-export * from "./utils/helpers"
-export * from "./utils/simpleController"
-export * from "./utils/simplePlugins"
-export { Middleware, ErrorMiddleware, SimpleJsServer } from "./typings/general";
+export { SetRequestCORS, SetRateLimiter, SetBodyParser } from "./utils/helpers"
+export type { SimpleJsPrivateMethodProps } from "./typings/general";

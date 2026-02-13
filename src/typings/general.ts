@@ -1,6 +1,7 @@
 import http, { IncomingMessage, ServerResponse } from "http";
 export type Next = () => Promise<void> | void;
 export type Plugin = (app: SimpleJsServer, opts?: any) => Promise<void> | void;
+export type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
 
 export type ObjectPayload = { [key: string]: any }
 export type Middleware = (
@@ -38,14 +39,14 @@ export interface ResponseObject extends ServerResponse {
 }
 
 export interface SubRequestHandler {
-  post?: (params: PrivateMethodProps) => void;
-  put?: (params: PrivateMethodProps) => void;
-  get?: (params: PrivateMethodProps) => void;
-  delete?: (params: PrivateMethodProps) => void;
-  patch?: (params: PrivateMethodProps) => void;
+  post?: (params: SimpleJsPrivateMethodProps) => void;
+  put?: (params: SimpleJsPrivateMethodProps) => void;
+  get?: (params: SimpleJsPrivateMethodProps) => void;
+  delete?: (params: SimpleJsPrivateMethodProps) => void;
+  patch?: (params: SimpleJsPrivateMethodProps) => void;
 }
 
-export interface PrivateMethodProps {
+export interface SimpleJsPrivateMethodProps {
   body: ObjectPayload;
   res: ResponseObject;
   req: RequestObject;

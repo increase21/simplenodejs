@@ -1,6 +1,5 @@
 import { RequestObject, ResponseObject } from "../typings/general";
 import qs from "node:querystring"
-import crypto from "node:crypto"
 import { ErrorMiddleware, Middleware, SimpleJsServer } from "../typings/general";
 import { SimpleJSBodyParseType, SimpleJSRateLimitType } from "../typings/simpletypes";
 // core/cors.ts

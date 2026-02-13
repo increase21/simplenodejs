@@ -2,16 +2,13 @@
 import fs from "node:fs";
 import path from "node:path";
 import { RequestObject, ResponseObject } from "./typings/general";
-let controllers = new Map<string, ControllerMeta>();
+import { SimpleJsControllerMeta } from "./typings/simpletypes";
+let controllers = new Map<string, SimpleJsControllerMeta>();
 
-export interface ControllerMeta {
-  name: string;
-  Controller: any;
-}
 
-export function loadControllers(root = "controllers"): Map<string, ControllerMeta> {
+export function loadControllers(root = "controllers"): Map<string, SimpleJsControllerMeta> {
   const base = path.resolve(process.cwd(), root);
-  const map = new Map<string, ControllerMeta>();
+  const map = new Map<string, SimpleJsControllerMeta>();
   //walk up
   function walk(dir: string) {
     //get all the file in the directory
@@ -74,7 +71,11 @@ export async function route(req: RequestObject, res: ResponseObject, controllers
     return res.status(404).json({ error: "The requested resource does not exist. Kindly check your url" })
   }
 
-  controller._bindContext({ req, res });
+  //bind the controller to use the global properties
+  controller.__bindContext({ req, res });
+
+  ////if there's protected function to run
+  if (typeof controller.__checkContext === "function") controller.__checkContext()
 
   const result = await controller[methodName](...(id || []));
 
