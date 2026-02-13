@@ -62,9 +62,7 @@ Creates and returns the HTTP app instance.
 
 ```ts
 const app = CreateSimpleJsHttpServer({
-  controllersDir: path.join(process.cwd(), "controllers"),
-  // trustProxy: true,
-  // globalPrefix: "/api"
+  controllersDir: process.cwd()+ "/controllers",
 });
 
 app.listen(4000,callback)
@@ -78,34 +76,43 @@ app.listen(4000,callback)
 Controllers are auto-loaded from `controllersDir`.
 
 ```ts
-export default AuthControllers {
+export default AuthControllers extends SimpleNodeJsController {
 
  async login(id:string) {
     return this.RunRequest({
-      post: //....your post method handler
-    }, {
-      customData: this._custom_data, body: this.body,
-      req: this.req, res: this.res, query: this.query,
-      idMethod: {
-        get: "optional", patch: "required",
-        delete: "required", put: "required"
-      },
+      post: //....your post method handler,
+      get://...
+      put://...
+      delete://....
+      ...
     })
   }
 };
 ```
 
 ### Controller Object Params
-
-| Param | Type | Description |
-|------|------|-------------|
-| `GET` | `function` | Handler for GET requests |
-| `POST` | `function` | Handler for POST requests |
-| `PUT` | `function` | Handler for PUT requests |
-| `DELETE` | `function` | Handler for DELETE requests |
-| `PATCH` | `function` | Handler for PATCH requests |
+Each method defined in the controller file exist as an endpoint exposed by SimpleNodeJsController. Methods can receive parameters which is passed as url pathname. When using this.RunRequest, the handlers receives SimpleJsPrivateMethodProps
 
 ---
+
+## 🧾 SimpleJsPrivateMethodProps (req)
+```ts
+{
+  body: any // parse payload.
+  res: ResponseObject;
+  req: RequestObject;
+  query: JSON // parse requests param.
+  id?: string;
+  customData?: any //any custom data attached to req._custom_data by middlewares
+  idMethod?: {
+    post?: 'required' | 'optional',
+    get?: 'required' | 'optional',
+    put?: 'required' | 'optional',
+    delete?: 'required' | 'optional',
+    patch?: 'required' | 'optional',
+  }
+}
+  ```
 
 ## 🧾 RequestObject (req)
 
@@ -115,12 +122,10 @@ Available on every route handler.
 |---------|------|-------------|
 | `req.url` | `string` | Request URL |
 | `req.method` | `string` | HTTP method |
-| `req.headers` | `object` | Request headers |
 | `req.query` | `object` | Parsed query params |
-| `req.params` | `object` | Route params |
 | `req.body` | `any` | Parsed request body |
-| `req.ip` | `string` | Client IP (supports proxy) |
-| `req.socket` | `Socket` | Raw socket |
+| `req.raw_body` | `any` | Parsed request body |
+| `req._custom_data` | `any`  |
 
 ---
 
@@ -132,7 +137,6 @@ Available on every route handler.
 | `res.json(data)` | `any` | Send JSON response |
 | `res.text(data)` | `string | Buffer` | Send raw response |
 | `res.html(html)` | `string` | Send HTML response |
-| `res.end()` | none | End response |
 
 ### Example
 
