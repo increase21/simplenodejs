@@ -33,17 +33,7 @@ npm install @increase21/simplenodejs
 
 ```ts
 import { CreateSimpleJsHttpServer } from "@increase21/simplenodejs";
-
-const app = CreateSimpleJsHttpServer({
-  controllersDir: process.cwd()+ "/controllers",
-  trustProxy: true
-});
-
-app.listen(3000, () => {
-  console.log("Server running on http://localhost:3000");
-});
 ```
-
 ---
 
 ## ⚙️ CreateSimpleJsHttpServer(options)
@@ -63,10 +53,12 @@ Creates and returns the HTTP app instance.
 ```ts
 const app = CreateSimpleJsHttpServer({
   controllersDir: process.cwd()+ "/controllers",
+  trustProxy: true
 });
 
-app.listen(4000,callback)
-
+app.listen(3000, () => {
+  console.log("Server running on http://localhost:3000");
+});
 ```
 
 ---
@@ -117,17 +109,14 @@ async vehicleList(id:string) {}
 ```code
 /vehicle-list
 /vehicle-list/{id}
-
 ```
 
 ```ts
 async vehicle() {}
-
 ```
 
 ```code
 /vehicle
-
 ```
 
 ---
@@ -155,7 +144,7 @@ Methods can receive parameters, which are passed through the URL pathname. When 
     patch?: 'required' | 'optional',
   }
 }
-  ```
+```
 
 ## 🧾 RequestObject (req)
 
