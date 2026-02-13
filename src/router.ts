@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { RequestObject, ResponseObject } from "./typings/general";
 import { SimpleJsControllerMeta } from "./typings/simpletypes";
+import { throwHttpError } from "./utils/helpers";
 let controllers = new Map<string, SimpleJsControllerMeta>();
 
 
@@ -38,7 +39,7 @@ export function setControllersDir(dir: string) {
   controllers = loadControllers(dir);
 }
 
-export async function route(req: RequestObject, res: ResponseObject, controllersDir?: string) {
+export async function route(req: RequestObject, res: ResponseObject) {
   let parts = req._end_point_path || []
   let controllerPath = (parts.length > 2 ? "/" + parts.slice(0, 2).join("/") : `/${parts.join("/")}`).toLocaleLowerCase()
   let methodName = parts.length > 2 ? parts[2] : "index";
@@ -46,7 +47,7 @@ export async function route(req: RequestObject, res: ResponseObject, controllers
   const meta = controllers.get(controllerPath);
 
   //if the controller is not available or not found
-  if (!meta || !meta.name || !meta.Controller) return res.status(404).json({ error: "The requested resource does not exist" })
+  if (!meta || !meta.name || !meta.Controller) return throwHttpError(404, "The requested resource does not exist")
 
   const ControllerClass = meta.Controller;
   const controller = new ControllerClass();
@@ -61,13 +62,13 @@ export async function route(req: RequestObject, res: ResponseObject, controllers
       methodName = "index"
       id = parts.slice(2)
     } else {
-      return res.status(404).json({ error: "The requested resource does not exist" })
+      return throwHttpError(404, "The requested resource does not exist")
     }
   }
 
   //if the data require params but there's no matching params
   if (id && id.length && (!controller[methodName].length || controller[methodName].length < id.length)) {
-    return res.status(404).json({ error: "The requested resource does not exist. Kindly check your url" })
+    return throwHttpError(404, "The requested resource does not exist")
   }
 
   //bind the controller to use the global properties

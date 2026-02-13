@@ -29,7 +29,6 @@ export function composeWithError(middlewares: Middleware[]) {
 
 export function throwHttpError(code: number, message: string) {
   const error = new Error(message) as any;
-  error.statusCode = code;
   error.toJSON = () => ({ code, error: message });
   throw error;
 }
