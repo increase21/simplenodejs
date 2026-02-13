@@ -23,7 +23,7 @@ export class SimpleNodeJsController {
   /** framework-internal method */
   __checkContext() { }
 
-  protected RunRequest(handlers: SubRequestHandler, params?: SimpleJsPrivateMethodProps) {
+  protected RunRequest(handlers: SubRequestHandler, params?: Partial<SimpleJsPrivateMethodProps>) {
     const method = this.req.method?.toLowerCase() as HttpMethod | undefined;
 
     if (!method) return throwHttpError(400, "Invalid HTTP Method");

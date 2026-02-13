@@ -74,7 +74,7 @@ app.listen(4000,callback)
 ## 📁 Controllers
 
 Controllers are auto-loaded from `controllersDir`.
-#### Running Multiple Methods
+#### Running an endpoint using RunRequest
 ##### ./controllers/{servicefolder}/auth.ts 
 #### or
 #### ./controllers/{servicefolder}/auth.js
@@ -93,9 +93,11 @@ export default AuthControllers extends SimpleNodeJsController {
   }
 };
 ```
-Available on POST|GET|PUT|DELETE at http://baseURl/{servicefolder}/auth/account
 
-#### Running Single Method
+The above endpoint is accessible on http://baseURl/{servicefolder}/auth/account.
+The endpoint receives optional parameter (id:string) which can be passed in the url e.g http://baseURl/{servicefolder}/auth/account/{id}
+
+#### Running an endpoint without RunRequest
 ```ts
 export default AuthControllers extends SimpleNodeJsController {
 
@@ -106,6 +108,29 @@ export default AuthControllers extends SimpleNodeJsController {
   }
 };
 ```
+### Endpoint Naming
+Endpoints are defined using camelCase method names in controller files and are exposed as kebab-case in the URL path.
+```ts
+async vehicleList(id:string) {}
+```
+
+```code
+/vehicle-list
+/vehicle-list/{id}
+
+```
+
+```ts
+async vehicle() {}
+
+```
+
+```code
+/vehicle
+
+```
+
+---
 
 ### Controller Object Params
 Each method defined in a controller file is exposed as an endpoint by SimpleNodeJsController.
@@ -215,7 +240,7 @@ Registers a plugin.
 ### Plugin Shape
 
 ```ts
-type Plugin = (app: SimpleJsServer, opts?: any) => void | Promise<void>;
+type Plugin = (app: SimpleJsServer, opts?: any) =>  Promise<any>|void;
 ```
 
 ### Built-In Plugins
@@ -240,10 +265,10 @@ All the standard http headers
 
 ### Usage
 ```ts
-app.use(app=>SetRequestCORS(app, [{
+app.use(SetRequestCORS({
   "Access-Control-Allow-Origin": "*",
   "X-Frame-Options": "DENY",
-}]));
+}));
 ```
 
 ---
