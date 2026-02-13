@@ -75,6 +75,8 @@ app.listen(4000,callback)
 
 Controllers are auto-loaded from `controllersDir`.
 #### Running Multiple Methods
+./controllers/{servicefolder}/auth.ts|js
+
 ```ts
 export default AuthControllers extends SimpleNodeJsController {
 
@@ -89,6 +91,7 @@ export default AuthControllers extends SimpleNodeJsController {
   }
 };
 ```
+Available as POST|GET|PUT|DELETE http://baseURl/{servicefolder}/auth/account
 
 #### Running Single Method
 ```ts
