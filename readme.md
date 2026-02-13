@@ -190,9 +190,20 @@ app.use(async (req, res, next) => {
 Registers a global error handler.
 
 ### Signature
+app.useError() registers global error-handling middleware.
+It catches all errors thrown anywhere in the request lifecycle — including:
+	•	Errors thrown inside middlewares
+	•	Errors thrown inside controllers / route handlers
+	•	Async errors (throw or rejected promises)
+	•	Validation errors
+	•	Custom application errors
+
+This gives you a single, centralized place to log, format, and return consistent error responses across your entire system.
 
 ```ts
-(err: any, req: RequestObject, res: ResponseObject, next: () => void) => void
+app.useError((err, req, res, next) => {
+  // handle error
+});
 ```
 
 ---

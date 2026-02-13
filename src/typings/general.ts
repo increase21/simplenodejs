@@ -1,26 +1,27 @@
 import http, { IncomingMessage, ServerResponse } from "http";
-export type Next = () => Promise<void> | void;
-export type Plugin = (app: SimpleJsServer, opts?: any) => Promise<void> | void;
+export type Next = () => Promise<any> | void;
+export type Plugin = (app: SimpleJsServer, opts?: any) => Promise<any> | void;
 export type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
 
 export type ObjectPayload = { [key: string]: any }
 export type Middleware = (
   req: RequestObject,
   res: ResponseObject,
-  next: () => Promise<void> | void
-) => Promise<void> | void;
+  next: () => Promise<any> | void,
+  errorHandler?: () => void
+) => Promise<any> | void;
 
 export type ErrorMiddleware = (
   err: any,
   req: RequestObject,
   res: ResponseObject,
   next: Next
-) => Promise<void> | void;
+) => Promise<boolean> | void;
 
 export interface SimpleJsServer extends http.Server {
   use(mw: Middleware): Promise<any> | void;
   useError: (mw: ErrorMiddleware) => void;
-  registerPlugin: (plugin: Plugin) => Promise<void>;
+  registerPlugin: (plugin: Plugin) => Promise<any> | void;
   _environment: 'dev' | 'stag' | 'live'
 }
 

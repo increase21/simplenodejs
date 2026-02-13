@@ -40,10 +40,10 @@ export const CreateSimpleJsHttpServer = (handler?: (req: IncomingMessage, res: S
   if (opts?.controllersDir) setControllersDir(opts.controllersDir);
 
   const server = http.createServer(async (req, res) => {
-    extension(req, res as ResponseObject)
-    const run = composeWithError(middlewares, errorMiddlewares);
     try {
-      handler && await handler(req, res)
+      extension(req, res as ResponseObject)
+      const run = composeWithError(middlewares);
+      // handler && await handler(req, res)
       if (res.writableEnded) return;
       await run(req as RequestObject, res as ResponseObject);
       //if the request has ended stop here
@@ -57,7 +57,7 @@ export const CreateSimpleJsHttpServer = (handler?: (req: IncomingMessage, res: S
       // 2. Safe HTTP response fallback
       if (!res.headersSent) {
         res.statusCode = 503;
-        res.end("Service unavailable at the moment");
+        res.end("No Error Handlers: Service unavailable at the moment");
       }
     }
   }) as SimpleJsServer;

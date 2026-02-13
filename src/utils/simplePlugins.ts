@@ -1,6 +1,6 @@
 import { Plugin, SimpleJsServer } from "../typings/general";
 import { SimpleJSRateLimitType } from "../typings/simpletypes";
-import { SetRateLimiter, SetRequestCORS } from "./helpers";
+import { SetRateLimiter, SetRequestCORS } from "./simpleMiddleware";
 
 export function SimpleJsSecurityPlugin(app: SimpleJsServer, opts: {
   cors?: { name: string, value: string }[],
