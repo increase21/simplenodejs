@@ -21,6 +21,11 @@ const extension = (req: RequestObject, res: ResponseObject): void => {
     res.setHeader('Content-Type', 'text/plain')
     res.end(param)
   }
+  const url = new URL(req.url!, "http://localhost");
+  req.query = url.search ? url.search.substring(1) : ''
+  //endpoint path
+  req._end_point_path = url.pathname.replace(/^\/+|\/+$/g, "").split("/");
+  //adding the request ID
   req.id = crypto.randomUUID();
   res.setHeader("X-Request-Id", req.id);
 }

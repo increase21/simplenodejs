@@ -117,12 +117,12 @@ export function SetBodyParser(opts: SimpleJSBodyParseType) {
         try {
           if (body && !["application/text", "application/media"].includes(req.headers.accept as string)) {
             req.body = JSON.parse(body)
-            //parse query
-            if (req.query) {
-              req.query = JSON.parse(JSON.stringify(qs.parse(req.query)))
-            }
           } else {
             req.body = body;
+          }
+          //parse query
+          if (req.query) {
+            req.query = JSON.parse(JSON.stringify(qs.parse(req.query)))
           }
           resolve(next());
         } catch (e) {

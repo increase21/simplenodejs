@@ -27,9 +27,10 @@ export interface SimpleJsServer extends http.Server {
 export interface RequestObject extends IncomingMessage {
   body?: any;
   query?: any;
-  id?: string
-  _server_environment?: 'dev' | 'stag' | 'live'
-  _custom_data?: ObjectPayload
+  id?: string;
+  _end_point_path?: string[];
+  _server_environment?: 'dev' | 'stag' | 'live';
+  _custom_data?: ObjectPayload;
 }
 
 export interface ResponseObject extends ServerResponse {

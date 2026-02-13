@@ -39,14 +39,10 @@ export function setControllersDir(dir: string) {
 }
 
 export async function route(req: RequestObject, res: ResponseObject, controllersDir?: string) {
-  // console.log("Router is called")
-  const url = new URL(req.url!, "http://localhost");
-  const parts = url.pathname.replace(/^\/+|\/+$/g, "").split("/");
-
+  let parts = req._end_point_path || []
   let controllerPath = (parts.length > 2 ? "/" + parts.slice(0, 2).join("/") : `/${parts.join("/")}`).toLocaleLowerCase()
   let methodName = parts.length > 2 ? parts[2] : "index";
   let id = methodName !== "index" ? parts.slice(parts.indexOf(methodName) + 1) : null
-
   const meta = controllers.get(controllerPath);
 
   //if the controller is not available or not found
