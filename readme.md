@@ -91,17 +91,18 @@ export default AuthControllers extends SimpleNodeJsController {
 ```
 
 ### Controller Object Params
-Each method defined in the controller file exist as an endpoint exposed by SimpleNodeJsController. Methods can receive parameters which is passed as url pathname. When using this.RunRequest, the handlers receives SimpleJsPrivateMethodProps
+Each method defined in a controller file is exposed as an endpoint by SimpleNodeJsController.
+Methods can receive parameters, which are passed through the URL pathname. When using this.RunRequest(...), the handler receives SimpleJsPrivateMethodProps.
 
 ---
 
-## 🧾 SimpleJsPrivateMethodProps (req)
+## 🧾 SimpleJsPrivateMethodProps
 ```ts
 {
-  body: any // parse payload.
+  body: any // parsed payload.
   res: ResponseObject;
   req: RequestObject;
-  query: JSON // parse requests param.
+  query: JSON // parsed requests param.
   id?: string;
   customData?: any //any custom data attached to req._custom_data by middlewares
   idMethod?: {
@@ -189,6 +190,15 @@ Registers a plugin.
 type Plugin = (app: SimpleJsServer, opts?: any) => void | Promise<void>;
 ```
 
+### Built-In Plugins
+
+| name      | Description |
+|-----------|-------------|
+| `SimpleJsSecurityPlugin` | CORS, RateLimit, Helmet |
+| `SimpleJsJWTPlugin` | JWT protection|
+| `SimpleJsIPWhitelistPlugin` | Restricting IP addresses |
+| `SimpleJsCookiePlugin` | Restricting IP addresses |
+
 ---
 
 # 🧱 Built-in Middlewares
@@ -198,7 +208,7 @@ type Plugin = (app: SimpleJsServer, opts?: any) => void | Promise<void>;
 Adds security headers.
 
 ### Options (optional)
-All the standard https headers
+All the standard http headers
 
 ### Usage
 ```ts
@@ -231,7 +241,7 @@ app.use(SetRateLimiter({
 ---
 
 ## 📥 SetBodyParser(options?)
-
+SetBodyParser middleware must be set for controllers to receive all needed data to process. 
 ### Options
 
 | Param | Type | Description |
