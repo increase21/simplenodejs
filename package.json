@@ -22,7 +22,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm publish",
     "test": "node dist/test.js",
     "dev": "nodemon server.ts"
   },
