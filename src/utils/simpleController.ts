@@ -22,7 +22,7 @@ export class SimpleNodeJsController {
   /** framework-internal method */
   __checkContext() { }
 
-  protected RunRequest(handlers: SubRequestHandler, params: SimpleJsPrivateMethodProps) {
+  protected RunRequest(handlers: SubRequestHandler, params?: SimpleJsPrivateMethodProps) {
     const method = this.req.method?.toLowerCase() as HttpMethod | undefined;
 
     if (!method) return this.res.status(400).json({ code: 400, error: "Invalid HTTP Method" });
@@ -43,7 +43,8 @@ export class SimpleNodeJsController {
     return runFn({
       ...(params || {}), req: this.req,
       res: this.res, query: this.query,
-      customData: this._custom_data
+      customData: this._custom_data,
+      body: this.body,
     });
   }
 }
