@@ -55,6 +55,9 @@ export async function route(req: RequestObject, res: ResponseObject, controllers
   const ControllerClass = meta.Controller;
   const controller = new ControllerClass();
 
+  //Update the method name to the framework pathen
+  methodName = (methodName || "").replace(/\-{1}\w{1}/g, match => match.replace("-", "").toUpperCase());
+
   //if the endpoint not a function
   if (typeof controller[methodName] !== "function") {
     //if it's using index
