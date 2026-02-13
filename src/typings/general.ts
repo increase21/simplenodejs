@@ -52,6 +52,7 @@ export interface SimpleJsPrivateMethodProps {
   req: RequestObject;
   query: ObjectPayload;
   id?: string;
+  customData?: any
   idMethod?: {
     post?: 'required' | 'optional',
     get?: 'required' | 'optional',
