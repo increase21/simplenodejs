@@ -33,10 +33,9 @@ npm install @increase21/simplenodejs
 
 ```ts
 import { CreateSimpleJsHttpServer } from "@increase21/simplenodejs";
-import path from "path";
 
 const app = CreateSimpleJsHttpServer({
-  controllersDir: path.join(process.cwd(), "controllers"),
+  controllersDir: process.cwd()+ "/controllers",
   trustProxy: true
 });
 
