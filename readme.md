@@ -74,11 +74,11 @@ app.listen(4000,callback)
 ## 📁 Controllers
 
 Controllers are auto-loaded from `controllersDir`.
-
+#### Running Multiple Methods
 ```ts
 export default AuthControllers extends SimpleNodeJsController {
 
- async login(id:string) {
+ async account(id:string) {
     return this.RunRequest({
       post: //....your post method handler,
       get://...
@@ -86,6 +86,18 @@ export default AuthControllers extends SimpleNodeJsController {
       delete://....
       ...
     })
+  }
+};
+```
+
+#### Running Single Method
+```ts
+export default AuthControllers extends SimpleNodeJsController {
+
+ async login() {
+    if(this.method !=="post") return this.res.status(405).json({error:"Method Not Allowed"})
+  
+    return YourHandler(SimpleJsPrivateMethodProps)
   }
 };
 ```
