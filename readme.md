@@ -53,7 +53,6 @@ Creates and returns the HTTP app instance.
 ```ts
 const app = CreateSimpleJsHttpServer({
   controllersDir: process.cwd()+ "/controllers",
-  trustProxy: true
 });
 
 app.listen(3000, () => {
@@ -148,9 +147,9 @@ Methods can receive parameters, which are passed through the URL pathname. When 
 
 ## 🧾 RequestObject (req)
 
-Available on every route handler.
+Available on every controller.
 
-| Property | Type | Description |
+| Additional Properties | Type | Description |
 |---------|------|-------------|
 | `req.url` | `string` | Request URL |
 | `req.method` | `string` | HTTP method |
@@ -163,7 +162,7 @@ Available on every route handler.
 
 ## 🧾 ResponseObject (res)
 
-| Method | Params | Description |
+| Additional Methods | Params | Description |
 |--------|--------|-------------|
 | `res.status(code)` | `number` | Set HTTP status |
 | `res.json(data)` | `any` | Send JSON response |
@@ -185,15 +184,15 @@ Registers a middleware that runs before controllers.
 ### Middleware Signature
 
 ```ts
-(req: RequestObject, res: ResponseObject, next: () => Promise<void> | void) => Promise<void> | void
+(req: RequestObject, res: ResponseObject, next: () => Promise<void> | void) => Promise<any> | void
 ```
 
 ### Example
 
 ```ts
-app.use(async (req, res, next) => {
+app.use((req, res, next) => {
   console.log(req.method, req.url);
-  await next();
+   next();
 });
 ```
 
@@ -203,7 +202,7 @@ app.use(async (req, res, next) => {
 
 Registers a global error handler.
 
-### Signature
+### ErrorHandler
 app.useError() registers global error-handling middleware.
 It catches all errors thrown anywhere in the request lifecycle — including:
 	•	Errors thrown inside middlewares
@@ -234,12 +233,12 @@ type Plugin = (app: SimpleJsServer, opts?: any) =>  Promise<any>|void;
 
 ### Built-In Plugins
 
-| name      | Description |
+| name      | Description |   Status  | 
 |-----------|-------------|
-| `SimpleJsSecurityPlugin` | CORS, RateLimit, Helmet |
-| `SimpleJsJWTPlugin` | JWT protection|
-| `SimpleJsIPWhitelistPlugin` | Restricting IP addresses |
-| `SimpleJsCookiePlugin` | Restricting IP addresses |
+| `SimpleJsSecurityPlugin` | CORS, RateLimit, Helmet | Available |
+| `SimpleJsJWTPlugin` | JWT protection|   Coming soon |
+| `SimpleJsIPWhitelistPlugin` | Restricting IP addresses |  Coming soon |
+| `SimpleJsCookiePlugin` | Cookies Plugin | Coming soon |
 
 ---
 
@@ -301,7 +300,7 @@ app.use(SetBodyParser({ limit: "2mb" }));
 - Always enable `SetSecurityHeaders`
 - Enable `SetRateLimiter` on public APIs
 - Validate request body
-- Use `trustProxy: true` only behind trusted proxies
+<!-- - Use `trustProxy: true` only behind trusted proxies -->
 - Avoid leaking stack traces in production
 
 ---

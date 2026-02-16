@@ -4,11 +4,11 @@ export type Plugin = (app: SimpleJsServer, opts?: any) => Promise<any> | void;
 export type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
 
 export type ObjectPayload = { [key: string]: any }
+
 export type Middleware = (
   req: RequestObject,
   res: ResponseObject,
   next: () => Promise<any> | void,
-  errorHandler?: () => void
 ) => Promise<any> | void;
 
 export type ErrorMiddleware = (
