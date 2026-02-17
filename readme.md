@@ -234,7 +234,7 @@ type Plugin = (app: SimpleJsServer, opts?: any) =>  Promise<any>|void;
 ### Built-In Plugins
 
 | name      | Description |   Status  | 
-|-----------|-------------|
+|-----------|-------------|-----------|
 | `SimpleJsSecurityPlugin` | CORS, RateLimit, Helmet | Available |
 | `SimpleJsJWTPlugin` | JWT protection|   Coming soon |
 | `SimpleJsIPWhitelistPlugin` | Restricting IP addresses |  Coming soon |
