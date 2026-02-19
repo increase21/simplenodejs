@@ -18,7 +18,7 @@ export function SimpleJsSecurityPlugin(app: SimpleJsServer, opts: {
   helmet?: true | Parameters<typeof SetHelmet>[0];
   rateLimit?: SimpleJSRateLimitType;
 }) {
-  if (opts.cors !== undefined) app.use(SetCORS(opts.cors));
+  if (opts.cors) app.use(SetCORS(opts.cors));
   if (opts.helmet) app.use(SetHelmet(opts.helmet === true ? undefined : opts.helmet));
   if (opts.rateLimit) app.use(SetRateLimiter(opts.rateLimit));
 }
