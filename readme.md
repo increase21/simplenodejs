@@ -45,9 +45,9 @@ const app = CreateSimpleJsHttpServer({
   controllersDir: process.cwd() + "/controllers",
 });
 
-app.use(SetBodyParser({ limit: "2mb" }));
 app.use(SetCORS());
 app.use(SetHelmet());
+app.use(SetBodyParser({ limit: "2mb" }));
 app.use(SetRateLimiter({ windowMs: 60_000, max: 100 }));
 
 app.listen(3000, () => {
@@ -98,58 +98,49 @@ Controllers are auto-loaded from `controllersDir` at startup. The file path maps
 ```
 controllers/
   users/
-    auth.ts       → /users/auth
-    profile.ts    → /users/profile
+    auth.ts           → /users/auth
+    profile.ts        → /users/profile
   drivers/
-    vehicles.ts   → /drivers/vehicles
+    vehicles.ts       → /drivers/vehicles
+    accountProfiles    → /drivers/account-profiles
 ```
 
-### Using RunRequest
+### Using __run
 
-`RunRequest` dispatches to the correct handler based on the HTTP method and enforces method-level ID validation.
+`__run` dispatches to the correct handler based on the HTTP method and enforces method-level ID validation.
 
 ```ts
-// controllers/users/auth.ts
+// controllers/drivers/auths.ts
 import { SimpleNodeJsController, SimpleJsPrivateMethodProps } from "@increase21/simplenodejs";
 
 export default class AuthController extends SimpleNodeJsController {
   async login() {
-    return this.RunRequest({
-      post: ({ body }) => {
-        // handle POST /users/auth/login
+    return this.__run({
+      post: () => { // handle POST /drivers/auths/login
         return { token: "..." };
       },
     });
   }
 
   async account(id: string) {
-    return this.RunRequest(
-      {
-        get: ({ id, customData }) => {
-          // handle GET /users/auth/account/:id
-          return { user: customData.user };
+    return this.__run({
+        get: () => {
+          // handle GET  /drivers/auths/account/:id
         },
-        put: ({ id, body }) => {
-          // handle PUT /users/auth/account/:id
+        put: () => {
+          // handle PUT  /drivers/auths/account/:id
         },
-        delete: ({ id }) => {
-          // handle DELETE /users/auth/account/:id
+        delete: () => {
+          // handle DELETE  /drivers/auths/account/:id
         },
+        id:{get:"optional", delete:"required",put:"required"}
       },
-      {
-        id,
-        idMethod: {
-          get: "required",
-          put: "required",
-          delete: "required",
-        },
-      }
     );
   }
 }
 ```
 
-### Without RunRequest
+### Without __run
 
 ```ts
 export default class AuthController extends SimpleNodeJsController {
@@ -169,15 +160,15 @@ Controller methods use **camelCase** and are exposed as **kebab-case** URLs.
 
 | Method name | URL |
 |---|---|
-| `async index()` | `/users/auth` |
-| `async login()` | `/users/auth/login` |
-| `async vehicleList(id)` | `/users/auth/vehicle-list` or `/users/auth/vehicle-list/:id` |
+| `async index()` | `/drivers/auths` |
+| `async login()` | `/drivers/auths/login` |
+| `async vehicleList(id)` | `/drivers/auths/vehicle-list` or `/drivers/auths/vehicle-list/:id` |
 
 ---
 
 ## SimpleJsPrivateMethodProps
 
-Properties available inside `RunRequest` handlers.
+Properties available inside `__run` handlers.
 
 | Property | Type | Description |
 |---|---|---|
@@ -187,7 +178,6 @@ Properties available inside `RunRequest` handlers.
 | `query` | `object` | Parsed query string |
 | `id` | `string \| undefined` | URL path parameter |
 | `customData` | `any` | Data attached by plugins/middlewares via `req._custom_data` |
-| `idMethod` | `object` | Per-method ID requirement rules (`"required"` \| `"optional"`) |
 
 ---
 
