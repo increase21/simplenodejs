@@ -18,7 +18,7 @@ export async function route(req: RequestObject, res: ResponseObject) {
   let parts = req._end_point_path || []
   let controllerPath = (parts.length > 2 ? "/" + parts.slice(0, 2).join("/") : `/${parts.join("/")}`).toLowerCase().replace(/\-{1}\w{1}/g, match => match.replace("-", "").toUpperCase());
   let methodName = parts.length > 2 ? parts[2] : "index";
-  let id = methodName !== "index" ? parts.slice(3).join("/") : null
+  let id = methodName !== "index" ? parts.slice(3) : []
   let httpMethod = (req.method || "").toLowerCase()
   const meta = controllers.get(controllerPath);
 
@@ -40,7 +40,7 @@ export async function route(req: RequestObject, res: ResponseObject) {
   if (typeof controller[methodName] !== "function") {
     if (typeof controller["index"] === "function" && parts.length === 3) {
       methodName = "index";
-      id = parts.slice(2).join("/") // pass the rest of the path as ID;
+      id = parts.slice(2) || []; // pass the rest of the path as ID;
     } else {
       return throwHttpError(404, "The requested resource does not exist");
     }
@@ -54,7 +54,7 @@ export async function route(req: RequestObject, res: ResponseObject) {
   //bind the controller to use the global properties
   controller.__bindContext({ req, res });
 
-  let result = await controller[methodName](id);
+  let result = await controller[methodName](...id);
 
   //if the cycle has ended
   if (res.writableEnded) return
@@ -66,11 +66,11 @@ export async function route(req: RequestObject, res: ResponseObject) {
   if (result && typeof result[httpMethod] !== "function") return throwHttpError(405, "Method Not Allowed");
 
   // ID validation rules
-  if (id && (!result.id || !result.id[httpMethod])) return throwHttpError(404, "Resource not found");
-  if (result.id && result.id[httpMethod] === "required" && !id) return throwHttpError(404, "Resource not found");
+  if (id.length && (!result.id || !result.id[httpMethod])) return throwHttpError(404, "Resource not found");
+  if (result.id && result.id[httpMethod] === "required" && !id.length) return throwHttpError(404, "Resource not found");
   result = await result[httpMethod]({
     req, res, query: controller.query, body: controller.body,
-    id: id, customData: controller._custom_data
+    id: id.join("/"), customData: controller._custom_data
   });
 
   //if not responded
