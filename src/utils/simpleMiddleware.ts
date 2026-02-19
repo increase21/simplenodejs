@@ -210,7 +210,7 @@ export function SetBodyParser(opts: SimpleJSBodyParseType) {
 
     let size = 0;
     let body = "";
-    req.on("data", chunk => {
+    !isMultipart && req.on("data", chunk => {
       size += chunk.length;
       if (maxSize && size > maxSize) {
         reject({ code: 413, error: "Payload Too Large" });
@@ -219,7 +219,7 @@ export function SetBodyParser(opts: SimpleJSBodyParseType) {
         req.socket.destroy();
         return;
       }
-      if (!isMultipart) body += chunk;
+      body += chunk;
     });
 
     req.on("end", () => {
