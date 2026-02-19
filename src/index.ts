@@ -1,5 +1,18 @@
 export { SimpleNodeJsController } from "./utils/simpleController";
-export { CreateSimpleJsHttpServer } from "./server";
-export { SetRequestCORS, SetRateLimiter, SetBodyParser } from "./utils/simpleMiddleware"
+export { CreateSimpleJsHttpServer, CreateSimpleJsHttpsServer } from "./server";
+export {
+  SetCORS,
+  SetHSTS,
+  SetCSP,
+  SetFrameGuard,
+  SetNoSniff,
+  SetReferrerPolicy,
+  SetPermissionsPolicy,
+  SetCOEP,
+  SetCOOP,
+  SetHelmet,
+  SetRateLimiter,
+  SetBodyParser,
+} from "./utils/simpleMiddleware"
 export * from "./utils/simplePlugins"
-export type { SimpleJsPrivateMethodProps, Middleware as SimpleJsMiddleware } from "./typings/general";
+export type { SimpleJsPrivateMethodProps, Middleware as SimpleJsMiddleware, SimpleJsHttpsServer } from "./typings/general";

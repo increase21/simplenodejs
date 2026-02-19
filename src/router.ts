@@ -1,39 +1,14 @@
 // router.ts
-import fs from "node:fs";
-import path from "node:path";
 import { RequestObject, ResponseObject } from "./typings/general";
 import { SimpleJsControllerMeta } from "./typings/simpletypes";
-import { throwHttpError } from "./utils/helpers";
+import { loadControllers, throwHttpError } from "./utils/helpers";
+import { SimpleNodeJsController } from "./utils/simpleController";
 let controllers = new Map<string, SimpleJsControllerMeta>();
 
-
-export function loadControllers(root = "controllers"): Map<string, SimpleJsControllerMeta> {
-  const base = path.resolve(process.cwd(), root);
-  const map = new Map<string, SimpleJsControllerMeta>();
-  //walk up
-  function walk(dir: string) {
-    //get all the file in the directory
-    for (const file of fs.readdirSync(dir)) {
-      //add the file name and path
-      const full = path.join(dir, file);
-      //load direct and reload the files
-      if (fs.statSync(full).isDirectory()) walk(full);
-      //if it's file load the file
-      else if (file.endsWith(".js") || file.endsWith(".ts")) {
-        const mod = require(full);
-        // const Controller = mod.default;
-        if (!full.startsWith(base)) return;
-        const Controller = require(full)?.default;
-        if (typeof Controller !== "function") return;
-        const key = full.replace(base, "").replace(/\\/g, "/").replace(/\.(ts|js)$/, "");
-        map.set(key.toLowerCase(), { name: Controller.name, Controller });
-      }
-    }
-  }
-
-  walk(base);
-  return map;
-}
+const UNSAFE_METHODS = new Set([
+  ...Object.getOwnPropertyNames(Object.prototype),
+  ...Object.getOwnPropertyNames(SimpleNodeJsController.prototype),
+]);
 
 export function setControllersDir(dir: string) {
   controllers = loadControllers(dir);
@@ -41,9 +16,10 @@ export function setControllersDir(dir: string) {
 
 export async function route(req: RequestObject, res: ResponseObject) {
   let parts = req._end_point_path || []
-  let controllerPath = (parts.length > 2 ? "/" + parts.slice(0, 2).join("/") : `/${parts.join("/")}`).toLocaleLowerCase()
+  let controllerPath = (parts.length > 2 ? "/" + parts.slice(0, 2).join("/") : `/${parts.join("/")}`).toLowerCase().replace(/\-{1}\w{1}/g, match => match.replace("-", "").toUpperCase());
   let methodName = parts.length > 2 ? parts[2] : "index";
-  let id = methodName !== "index" ? parts.slice(parts.indexOf(methodName) + 1) : null
+  let id = methodName !== "index" ? parts.slice(3).join("/") : null
+  let httpMethod = (req.method || "").toLowerCase()
   const meta = controllers.get(controllerPath);
 
   //if the controller is not available or not found
@@ -52,17 +28,21 @@ export async function route(req: RequestObject, res: ResponseObject) {
   const ControllerClass = meta.Controller;
   const controller = new ControllerClass();
 
-  //Update the method name to the framework pathen
+  //Update the method name to the framework pattern
   methodName = (methodName || "").replace(/\-{1}\w{1}/g, match => match.replace("-", "").toUpperCase());
+
+  // Block Object.prototype methods (constructor, toString, etc.) and __private convention
+  if (methodName.startsWith("__") || UNSAFE_METHODS.has(methodName)) {
+    return throwHttpError(404, "The requested resource does not exist");
+  }
 
   //if the endpoint not a function
   if (typeof controller[methodName] !== "function") {
-    //if it's using index
     if (typeof controller["index"] === "function" && parts.length === 3) {
-      methodName = "index"
-      id = parts.slice(2)
+      methodName = "index";
+      id = parts.slice(2).join("/") // pass the rest of the path as ID;
     } else {
-      return throwHttpError(404, "The requested resource does not exist")
+      return throwHttpError(404, "The requested resource does not exist");
     }
   }
 
@@ -74,14 +54,25 @@ export async function route(req: RequestObject, res: ResponseObject) {
   //bind the controller to use the global properties
   controller.__bindContext({ req, res });
 
-  ////if there's protected function to run
-  if (typeof controller.__checkContext === "function") controller.__checkContext()
+  let result = await controller[methodName](id);
 
-  const result = await controller[methodName](...(id || []));
+  //if the cycle has ended
+  if (res.writableEnded) return
 
-  //if it's not responded
-  if (!res.writableEnded && result) {
-    res.setHeader("Content-Type", "application/json");
-    res.end(JSON.stringify(result));
-  }
+  //if the controller returned nothing and response is not ended, end it
+  if (!result && !res.writableEnded) return res.end();
+
+  //if there's no method defined for the http verb, return 405
+  if (result && typeof result[httpMethod] !== "function") return throwHttpError(405, "Method Not Allowed");
+
+  // ID validation rules
+  if (id && (!result.id || !result.id[httpMethod])) return throwHttpError(404, "Resource not found");
+  if (result.id && result.id[httpMethod] === "required" && !id) return throwHttpError(404, "Resource not found");
+  result = await result[httpMethod]({
+    req, res, query: controller.query, body: controller.body,
+    id: id, customData: controller._custom_data
+  });
+
+  //if not responded
+  if (!res.writableEnded) res.end("");
 }

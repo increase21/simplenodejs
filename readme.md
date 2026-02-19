@@ -1,27 +1,28 @@
 # @increase21/simplenodejs
 
-**SimpleNodeJS** is a minimal, dependency-free Node.js framework built on top of Node’s native `http` and `https` module.  
+**SimpleNodeJS** is a minimal, dependency-free Node.js framework built on top of Node's native `http` and `https` modules.
 It provides controller-based routing, middleware, plugins, and security utilities with full TypeScript support.
 
 ---
 
-## ✨ Features
+## Features
 
-- Native Node.js HTTP server (no Express/Fastify)
+- Native Node.js HTTP/HTTPS server (no Express/Fastify)
 - Controller-based routing (file-system driven)
 - Middleware & error middleware
 - Plugin system
-- Built-in security middlewares
-- Rate limiting
-- CORS
-- body and Query parsing
-- HTML responses
+- Individual security middlewares (CORS, HSTS, CSP, Helmet, etc.)
+- Rate limiting with proxy support
+- Cookie parsing & signed cookies
+- IP whitelist/blacklist
+- Request logging, timeouts, cache control, maintenance mode
+- Body and query parsing
 - TypeScript-first
-- Reverse-proxy friendly (Nginx)
+- Reverse-proxy friendly (Nginx, load balancers)
 
 ---
 
-## 📦 Installation
+## Installation
 
 ```bash
 npm install @increase21/simplenodejs
@@ -29,31 +30,25 @@ npm install @increase21/simplenodejs
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ```ts
-import { CreateSimpleJsHttpServer } from "@increase21/simplenodejs";
-```
----
+import {
+  CreateSimpleJsHttpServer,
+  SetBodyParser,
+  SetHelmet,
+  SetCORS,
+  SetRateLimiter,
+} from "@increase21/simplenodejs";
 
-## ⚙️ CreateSimpleJsHttpServer(options)
-
-Creates and returns the HTTP app instance.
-
-### Parameters
-
-| Param | Type | Required | Description |
-|------|------|----------|-------------|
-| `controllersDir` | `string` | ✅ | Absolute path to your controllers directory |
-<!-- | `trustProxy` | `boolean` | ❌ | If `true`, uses `x-forwarded-for` for IP detection (for Nginx/load balancers) |
-| `globalPrefix` | `string` | ❌ | Prefix all routes, e.g. `/api` | -->
-
-### Example
-
-```ts
 const app = CreateSimpleJsHttpServer({
-  controllersDir: process.cwd()+ "/controllers",
+  controllersDir: process.cwd() + "/controllers",
 });
+
+app.use(SetBodyParser({ limit: "2mb" }));
+app.use(SetCORS());
+app.use(SetHelmet());
+app.use(SetRateLimiter({ windowMs: 60_000, max: 100 }));
 
 app.listen(3000, () => {
   console.log("Server running on http://localhost:3000");
@@ -62,126 +57,178 @@ app.listen(3000, () => {
 
 ---
 
-## 📁 Controllers
+## CreateSimpleJsHttpServer(options)
 
-Controllers are auto-loaded from `controllersDir`.
-#### Running an endpoint using RunRequest
-##### ./controllers/{servicefolder}/auth.ts 
-#### or
-#### ./controllers/{servicefolder}/auth.js
+Creates and returns an HTTP app instance.
+
+| Param | Type | Required | Description |
+|------|------|----------|-------------|
+| `controllersDir` | `string` | ✅ | Path to your controllers directory |
+
+## CreateSimpleJsHttpsServer(options)
+
+Creates and returns an HTTPS app instance.
+
+| Param | Type | Required | Description |
+|------|------|----------|-------------|
+| `controllersDir` | `string` | ✅ | Path to your controllers directory |
+| `tlsOpts` | `https.ServerOptions` | ✅ | TLS options (key, cert, etc.) |
 
 ```ts
-export default AuthControllers extends SimpleNodeJsController {
+import fs from "fs";
+import { CreateSimpleJsHttpsServer } from "@increase21/simplenodejs";
 
- async account(id:string) {
+const app = CreateSimpleJsHttpsServer({
+  controllersDir: process.cwd() + "/controllers",
+  tlsOpts: {
+    key: fs.readFileSync("key.pem"),
+    cert: fs.readFileSync("cert.pem"),
+  },
+});
+
+app.listen(443);
+```
+
+---
+
+## Controllers
+
+Controllers are auto-loaded from `controllersDir` at startup. The file path maps directly to the URL.
+
+```
+controllers/
+  users/
+    auth.ts       → /users/auth
+    profile.ts    → /users/profile
+  drivers/
+    vehicles.ts   → /drivers/vehicles
+```
+
+### Using RunRequest
+
+`RunRequest` dispatches to the correct handler based on the HTTP method and enforces method-level ID validation.
+
+```ts
+// controllers/users/auth.ts
+import { SimpleNodeJsController, SimpleJsPrivateMethodProps } from "@increase21/simplenodejs";
+
+export default class AuthController extends SimpleNodeJsController {
+  async login() {
     return this.RunRequest({
-      post: //....your post method handler,
-      get://...
-      put://...
-      delete://....
-      ...
-    })
+      post: ({ body }) => {
+        // handle POST /users/auth/login
+        return { token: "..." };
+      },
+    });
   }
-};
-```
 
-The above endpoint is accessible on http://baseURl/{servicefolder}/auth/account.
-The endpoint receives optional parameter (id:string) which can be passed in the url e.g http://baseURl/{servicefolder}/auth/account/{id}
-
-#### Running an endpoint without RunRequest
-```ts
-export default AuthControllers extends SimpleNodeJsController {
-
- async login() {
-    if(this.method !=="post") return this.res.status(405).json({error:"Method Not Allowed"})
-  
-    return YourHandler(SimpleJsPrivateMethodProps)
-  }
-};
-```
-### Endpoint Naming
-Endpoints are defined using camelCase method names in controller files and are exposed as kebab-case in the URL path.
-```ts
-async vehicleList(id:string) {}
-```
-
-```code
-/vehicle-list
-/vehicle-list/{id}
-```
-
-```ts
-async vehicle() {}
-```
-
-```code
-/vehicle
-```
-
----
-
-### Controller Object Params
-Each method defined in a controller file is exposed as an endpoint by SimpleNodeJsController.
-Methods can receive parameters, which are passed through the URL pathname. When using this.RunRequest(...), the handler receives SimpleJsPrivateMethodProps.
-
----
-
-## 🧾 SimpleJsPrivateMethodProps
-```ts
-{
-  body: any // parsed payload.
-  res: ResponseObject;
-  req: RequestObject;
-  query: JSON // parsed requests param.
-  id?: string;
-  customData?: any //any custom data attached to req._custom_data by middlewares
-  idMethod?: {
-    post?: 'required' | 'optional',
-    get?: 'required' | 'optional',
-    put?: 'required' | 'optional',
-    delete?: 'required' | 'optional',
-    patch?: 'required' | 'optional',
+  async account(id: string) {
+    return this.RunRequest(
+      {
+        get: ({ id, customData }) => {
+          // handle GET /users/auth/account/:id
+          return { user: customData.user };
+        },
+        put: ({ id, body }) => {
+          // handle PUT /users/auth/account/:id
+        },
+        delete: ({ id }) => {
+          // handle DELETE /users/auth/account/:id
+        },
+      },
+      {
+        id,
+        idMethod: {
+          get: "required",
+          put: "required",
+          delete: "required",
+        },
+      }
+    );
   }
 }
 ```
 
-## 🧾 RequestObject (req)
+### Without RunRequest
 
-Available on every controller.
+```ts
+export default class AuthController extends SimpleNodeJsController {
+  async login() {
+    if (this.method !== "post") return this.res.status(405).json({ error: "Method Not Allowed" });
 
-| Additional Properties | Type | Description |
-|---------|------|-------------|
-| `req.url` | `string` | Request URL |
-| `req.method` | `string` | HTTP method |
-| `req.query` | `object` | Parsed query params |
-| `req.body` | `any` | Parsed request body |
-| `req.raw_body` | `any` | Parsed request body |
-| `req._custom_data` | `any`  |
+    const { email, password } = this.body;
+    // ... your logic
+    return this.res.status(200).json({ token: "..." });
+  }
+}
+```
+
+### Endpoint Naming
+
+Controller methods use **camelCase** and are exposed as **kebab-case** URLs.
+
+| Method name | URL |
+|---|---|
+| `async index()` | `/users/auth` |
+| `async login()` | `/users/auth/login` |
+| `async vehicleList(id)` | `/users/auth/vehicle-list` or `/users/auth/vehicle-list/:id` |
 
 ---
 
-## 🧾 ResponseObject (res)
+## SimpleJsPrivateMethodProps
 
-| Additional Methods | Params | Description |
-|--------|--------|-------------|
-| `res.status(code)` | `number` | Set HTTP status |
-| `res.json(data)` | `any` | Send JSON response |
-| `res.text(data)` | `string | Buffer` | Send raw response |
-| `res.html(html)` | `string` | Send HTML response |
+Properties available inside `RunRequest` handlers.
 
-### Example
+| Property | Type | Description |
+|---|---|---|
+| `req` | `RequestObject` | Raw request object |
+| `res` | `ResponseObject` | Raw response object |
+| `body` | `object` | Parsed request body |
+| `query` | `object` | Parsed query string |
+| `id` | `string \| undefined` | URL path parameter |
+| `customData` | `any` | Data attached by plugins/middlewares via `req._custom_data` |
+| `idMethod` | `object` | Per-method ID requirement rules (`"required"` \| `"optional"`) |
+
+---
+
+## RequestObject (req)
+
+Extends Node's `IncomingMessage` with additional properties.
+
+| Property | Type | Description |
+|---|---|---|
+| `req.url` | `string` | Full request URL |
+| `req.method` | `string` | HTTP method |
+| `req.headers` | `object` | Request headers |
+| `req.query` | `object` | Parsed query string parameters |
+| `req.body` | `any` | Parsed request body (set by `SetBodyParser`) |
+| `req.id` | `string` | Auto-generated UUID for the request (also sent as `X-Request-Id` header) |
+| `req._custom_data` | `object` | Shared data bag written by plugins (payload, cookies, etc.) |
+
+---
+
+## ResponseObject (res)
+
+Extends Node's `ServerResponse` with helper methods.
+
+| Method | Params | Description |
+|---|---|---|
+| `res.status(code)` | `number` | Set HTTP status code, chainable |
+| `res.json(data)` | `object` | Send a JSON response |
+| `res.text(data?)` | `string` | Send a plain text response |
 
 ```ts
 res.status(200).json({ success: true });
+res.status(404).text("Not found");
 ```
 
 ---
 
-## 🔌 app.use(middleware)
+## app.use(middleware)
 
-Registers a middleware that runs before controllers.
+Registers a middleware that runs on every request before controllers.
 
-### Middleware Signature
+### Middleware signature
 
 ```ts
 (req: RequestObject, res: ResponseObject, next: () => Promise<void> | void) => Promise<any> | void
@@ -192,125 +239,339 @@ Registers a middleware that runs before controllers.
 ```ts
 app.use((req, res, next) => {
   console.log(req.method, req.url);
-   next();
+  next();
 });
 ```
 
 ---
 
-## ❌ app.useError(errorMiddleware)
+## app.useError(errorMiddleware)
 
-Registers a global error handler.
-
-### ErrorHandler
-app.useError() registers global error-handling middleware.
-It catches all errors thrown anywhere in the request lifecycle — including:
-	•	Errors thrown inside middlewares
-	•	Errors thrown inside controllers / route handlers
-	•	Async errors (throw or rejected promises)
-	•	Validation errors
-	•	Custom application errors
-
-This gives you a single, centralized place to log, format, and return consistent error responses across your entire system.
+Registers a global error handler. Catches all errors thrown in middlewares, controllers, and async handlers.
 
 ```ts
 app.useError((err, req, res, next) => {
-  // handle error
+  const status = err?.statusCode || 500;
+  res.status(status).json({ error: err.message });
 });
 ```
 
 ---
 
-## 🧩 app.registerPlugin(app=>plugin(app,opts))
+## app.registerPlugin(plugin)
 
-Registers a plugin.
-
-### Plugin Shape
+Registers a plugin function.
 
 ```ts
-type Plugin = (app: SimpleJsServer, opts?: any) =>  Promise<any>|void;
+type Plugin = (app: SimpleJsServer, opts?: any) => Promise<any> | void;
 ```
 
-### Built-In Plugins
-
-| name      | Description |   Status  | 
-|-----------|-------------|-----------|
-| `SimpleJsSecurityPlugin` | CORS, RateLimit, Helmet | Available |
-| `SimpleJsJWTPlugin` | JWT protection|   Coming soon |
-| `SimpleJsIPWhitelistPlugin` | Restricting IP addresses |  Coming soon |
-| `SimpleJsCookiePlugin` | Cookies Plugin | Coming soon |
-
----
-
-# 🧱 Built-in Middlewares
-
-## 🔐 SetRequestCORS(options?)
-
-Adds security headers.
-
-### Options (optional)
-All the standard http headers
-
-### Usage
 ```ts
-app.use(SetRequestCORS({
-  "Access-Control-Allow-Origin": "*",
-  "X-Frame-Options": "DENY",
-}));
+app.registerPlugin(app => SimpleJsSecurityPlugin(app, opt));
 ```
 
 ---
 
-## ⏱ SetRateLimiter(options)
+# Built-in Middlewares
 
-### Options
+## SetBodyParser(options)
 
-| Param | Type | Required | Description |
-|------|------|----------|-------------|
-| `windowMs` | `number` | ✅ | Time window in ms |
-| `max` | `number` | ✅ | Max requests per window |
-| `keyGenerator` | `(req) => string` | ❌ | Custom key generator |
-
-```ts
-app.use(SetRateLimiter({
-  windowMs: 60_000,
-  max: 100,
-  keyGenerator: (req) => req.ip
-}));
-```
-
----
-
-## 📥 SetBodyParser(options?)
-SetBodyParser middleware must be set for controllers to receive all needed data to process. 
-### Options
+Parses the request body. Must be registered before controllers access `this.body`.
 
 | Param | Type | Description |
-|------|------|-------------|
-| `limit` | `string` or `number` | Max body size (e.g. "1mb") 
+|---|---|---|
+| `limit` | `string \| number` | Max body size (e.g. `"2mb"`, `"500kb"`, or bytes as number). Default: `"1mb"` |
 
 ```ts
 app.use(SetBodyParser({ limit: "2mb" }));
 ```
 
----
-
-## 🛡 Security Best Practices
-
-- Always enable `SetSecurityHeaders`
-- Enable `SetRateLimiter` on public APIs
-- Validate request body
-<!-- - Use `trustProxy: true` only behind trusted proxies -->
-- Avoid leaking stack traces in production
+> Multipart/form-data bodies are not buffered into memory — the size limit still applies to prevent oversized uploads.
 
 ---
 
-## 📄 License
+## SetCORS(options?)
+
+Sets `Access-Control-*` headers and handles OPTIONS preflight.
+
+| Param | Type | Default | Description |
+|---|---|---|---|
+| `origin` | `string` | `"*"` | Allowed origin |
+| `methods` | `string` | `"GET, POST, DELETE, PUT, PATCH"` | Allowed methods |
+| `headers` | `string` | standard set | Allowed headers |
+| `credentials` | `boolean` | `false` | Allow cookies/auth headers. Requires `origin` to be set to a specific domain |
+
+```ts
+// Public API
+app.use(SetCORS());
+
+// Credentialed (cookies, Authorization header)
+app.use(SetCORS({ origin: "https://myapp.com", credentials: true }));
+```
+
+---
+
+## SetHelmet(options?)
+
+Sets all security response headers in one call. Each header can be individually overridden or disabled.
+
+| Option | Header | Default |
+|---|---|---|
+| `hsts` | `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` |
+| `csp` | `Content-Security-Policy` | `default-src 'none'` |
+| `frameGuard` | `X-Frame-Options` | `DENY` |
+| `noSniff` | `X-Content-Type-Options` | `nosniff` |
+| `referrerPolicy` | `Referrer-Policy` | `no-referrer` |
+| `permissionsPolicy` | `Permissions-Policy` | all features blocked |
+| `coep` | `Cross-Origin-Embedder-Policy` | `require-corp` |
+| `coop` | `Cross-Origin-Opener-Policy` | `same-origin` |
+
+Pass `false` to disable any individual header. Pass a string to override the value.
+
+```ts
+// All defaults
+app.use(SetHelmet());
+
+// HTTP server — disable HSTS, relax CSP
+app.use(SetHelmet({
+  hsts: false,
+  csp: "default-src 'self'",
+  coep: false,
+}));
+```
+
+---
+
+## Individual Security Headers
+
+Each header is also available as a standalone middleware:
+
+| Function | Header |
+|---|---|
+| `SetHSTS(opts?)` | `Strict-Transport-Security` |
+| `SetCSP(policy?)` | `Content-Security-Policy` |
+| `SetFrameGuard(action?)` | `X-Frame-Options` |
+| `SetNoSniff()` | `X-Content-Type-Options` |
+| `SetReferrerPolicy(policy?)` | `Referrer-Policy` |
+| `SetPermissionsPolicy(policy?)` | `Permissions-Policy` |
+| `SetCOEP(value?)` | `Cross-Origin-Embedder-Policy` |
+| `SetCOOP(value?)` | `Cross-Origin-Opener-Policy` |
+
+```ts
+app.use(SetFrameGuard("SAMEORIGIN"));
+app.use(SetCSP("default-src 'self'; img-src *"));
+app.use(SetHSTS({ maxAge: 63072000, preload: true }));
+```
+
+> `SetHSTS` is only meaningful on HTTPS. Browsers silently ignore it over plain HTTP.
+
+---
+
+## SetRateLimiter(options)
+
+Limits repeated requests per client IP using an in-memory store.
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `windowMs` | `number` | ✅ | Time window in milliseconds |
+| `max` | `number` | ✅ | Max requests per window |
+| `trustProxy` | `boolean` | ❌ | If `true`, reads IP from `X-Forwarded-For` (for Nginx/load balancers). Default: `false` |
+| `keyGenerator` | `(req) => string` | ❌ | Custom key function (e.g. by user ID instead of IP) |
+
+```ts
+app.use(SetRateLimiter({ windowMs: 60_000, max: 100 }));
+
+// Behind Nginx
+app.use(SetRateLimiter({ windowMs: 60_000, max: 100, trustProxy: true }));
+```
+
+> The store is in-memory and per-process. In clustered/multi-worker deployments each worker maintains its own counter. Use a custom `keyGenerator` with an external store for distributed rate limiting.
+
+---
+
+# Plugins
+
+## SimpleJsSecurityPlugin
+
+Convenience plugin combining CORS, Helmet, and rate limiting.
+
+```ts
+import { SimpleJsSecurityPlugin } from "@increase21/simplenodejs";
+
+app.registerPlugin(app => SimpleJsSecurityPlugin(app, {
+  cors: { origin: "https://myapp.com", credentials: true },
+  helmet: { hsts: false },
+  rateLimit: { windowMs: 60_000, max: 200 },
+}));
+```
+
+---
+
+## SimpleJsCookiePlugin + SignCookie
+
+Parses the `Cookie` header on every request. Cookies are available at `this._custom_data.cookies`.
+
+If a `secret` is provided, signed cookies (prefixed with `s:`) are verified using HMAC-SHA256. Cookies with invalid signatures are silently dropped.
+
+| Option | Type | Description |
+|---|---|---|
+| `secret` | `string` | Optional signing secret for verified cookies |
+| `dataKey` | `string` | Key on `_custom_data`. Default: `"cookies"` |
+
+```ts
+import { SimpleJsCookiePlugin, SignCookie } from "@increase21/simplenodejs";
+
+// Register plugin
+app.registerPlugin(app => SimpleJsCookiePlugin(app, {
+  secret: process.env.COOKIE_SECRET,
+}));
+
+// Set a signed cookie in a controller
+const signed = SignCookie(sessionId, process.env.COOKIE_SECRET!);
+this.res.setHeader("Set-Cookie", `session=${signed}; HttpOnly; Secure; SameSite=Strict`);
+
+// Read cookie in any controller
+const { session } = this._custom_data.cookies;
+```
+
+---
+
+## SimpleJsIPWhitelistPlugin
+
+Allows or blocks requests by client IP address.
+
+| Option | Type | Description |
+|---|---|---|
+| `ips` | `string[]` | List of IP addresses |
+| `mode` | `"allow" \| "deny"` | `"allow"` = whitelist (only listed IPs pass). `"deny"` = blacklist (listed IPs are blocked). Default: `"allow"` |
+| `trustProxy` | `boolean` | Read IP from `X-Forwarded-For`. Default: `false` |
+
+```ts
+import { SimpleJsIPWhitelistPlugin } from "@increase21/simplenodejs";
+
+// Only allow specific IPs (whitelist)
+app.registerPlugin(app => SimpleJsIPWhitelistPlugin(app, {
+  ips: ["203.0.113.10", "198.51.100.5"],
+  mode: "allow",
+}));
+
+// Block known bad IPs (blacklist)
+app.registerPlugin(app => SimpleJsIPWhitelistPlugin(app, {
+  ips: ["203.0.113.99"],
+  mode: "deny",
+  trustProxy: true,
+}));
+```
+
+---
+
+## SimpleJsRequestLoggerPlugin
+
+Logs every completed request with method, URL, status code, and duration.
+
+| Option | Type | Description |
+|---|---|---|
+| `logger` | `(msg: string) => void` | Custom log function. Default: `console.log` |
+| `format` | `"simple" \| "json"` | Log format. Default: `"simple"` |
+
+```ts
+import { SimpleJsRequestLoggerPlugin } from "@increase21/simplenodejs";
+
+// Simple text logs
+app.registerPlugin(app => SimpleJsRequestLoggerPlugin(app));
+// → [2025-01-01T00:00:00.000Z] GET /users/auth/login 200 12ms
+
+// JSON logs (for log aggregators)
+app.registerPlugin(app => SimpleJsRequestLoggerPlugin(app, {
+  format: "json",
+  logger: (msg) => process.stdout.write(msg + "\n"),
+}));
+// → {"time":"...","method":"GET","url":"/users/auth/login","status":200,"ms":12,"id":"uuid"}
+```
+
+---
+
+## SimpleJsTimeoutPlugin
+
+Automatically closes requests that exceed the configured time limit with `503`.
+
+| Option | Type | Description |
+|---|---|---|
+| `ms` | `number` | Timeout in milliseconds |
+| `message` | `string` | Custom timeout message. Default: `"Request timeout"` |
+
+```ts
+import { SimpleJsTimeoutPlugin } from "@increase21/simplenodejs";
+
+app.registerPlugin(app => SimpleJsTimeoutPlugin(app, { ms: 10_000 }));
+```
+
+---
+
+## SimpleJsCachePlugin
+
+Sets `Cache-Control` response headers globally.
+
+| Option | Type | Description |
+|---|---|---|
+| `maxAge` | `number` | Max age in seconds |
+| `private` | `boolean` | Mark as private (user-specific, not shared caches) |
+| `noStore` | `boolean` | Disable all caching entirely |
+
+```ts
+import { SimpleJsCachePlugin } from "@increase21/simplenodejs";
+
+// Public cache for 5 minutes
+app.registerPlugin(app => SimpleJsCachePlugin(app, { maxAge: 300 }));
+
+// No caching (APIs with sensitive data)
+app.registerPlugin(app => SimpleJsCachePlugin(app, { noStore: true }));
+```
+
+---
+
+## SimpleJsMaintenanceModePlugin
+
+Returns `503` for all traffic when maintenance mode is on. Specific IPs (e.g. your office or CI server) can bypass.
+
+| Option | Type | Description |
+|---|---|---|
+| `enabled` | `boolean` | Toggle maintenance mode |
+| `message` | `string` | Custom response message |
+| `allowIPs` | `string[]` | IPs that bypass maintenance mode |
+| `trustProxy` | `boolean` | Read IP from `X-Forwarded-For`. Default: `false` |
+
+```ts
+import { SimpleJsMaintenanceModePlugin } from "@increase21/simplenodejs";
+
+app.registerPlugin(app => SimpleJsMaintenanceModePlugin(app, {
+  enabled: process.env.MAINTENANCE === "true",
+  message: "We are upgrading. Back soon.",
+  allowIPs: ["203.0.113.10"],
+}));
+```
+
+---
+
+# Security Best Practices
+
+- Always register `SetHelmet()` or individual header middlewares
+- Use `SetRateLimiter` on all public endpoints
+- Enable `credentials: true` in `SetCORS` only with a specific `origin` — never with a wildcard
+- Only set `trustProxy: true` on `SetRateLimiter` or `SimpleJsIPWhitelistPlugin` when running behind a trusted reverse proxy (Nginx, etc.)
+- Register `SetBodyParser` with a reasonable `limit` to prevent oversized payloads
+- Use `app.useError` to handle errors uniformly — unhandled errors return `"Service unavailable"` with no internal details exposed
+- Add `HttpOnly; Secure; SameSite=Strict` attributes when setting cookies via `Set-Cookie`
+- On HTTPS deployments, register `SetHSTS()` or include it in `SetHelmet()`
+
+---
+
+## License
 
 MIT
 
 ---
 
-## 👤 Author
+## Author
 
 Increase

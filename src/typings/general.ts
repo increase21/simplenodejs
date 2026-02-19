@@ -1,4 +1,5 @@
 import http, { IncomingMessage, ServerResponse } from "http";
+import https from "node:https";
 export type Next = () => Promise<any> | void;
 export type Plugin = (app: SimpleJsServer, opts?: any) => Promise<any> | void;
 export type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
@@ -22,7 +23,12 @@ export interface SimpleJsServer extends http.Server {
   use(mw: Middleware): Promise<any> | void;
   useError: (mw: ErrorMiddleware) => void;
   registerPlugin: (plugin: Plugin) => Promise<any> | void;
-  _environment: 'dev' | 'stag' | 'live'
+}
+
+export interface SimpleJsHttpsServer extends https.Server {
+  use(mw: Middleware): Promise<any> | void;
+  useError: (mw: ErrorMiddleware) => void;
+  registerPlugin: (plugin: Plugin) => Promise<any> | void;
 }
 
 export interface RequestObject extends IncomingMessage {
@@ -30,7 +36,6 @@ export interface RequestObject extends IncomingMessage {
   query?: any;
   id?: string;
   _end_point_path?: string[];
-  _server_environment?: 'dev' | 'stag' | 'live';
   _custom_data?: ObjectPayload;
 }
 
@@ -40,27 +45,11 @@ export interface ResponseObject extends ServerResponse {
   text: (value?: string) => void;
 }
 
-export interface SubRequestHandler {
-  post?: (params: SimpleJsPrivateMethodProps) => void;
-  put?: (params: SimpleJsPrivateMethodProps) => void;
-  get?: (params: SimpleJsPrivateMethodProps) => void;
-  delete?: (params: SimpleJsPrivateMethodProps) => void;
-  patch?: (params: SimpleJsPrivateMethodProps) => void;
-}
-
 export interface SimpleJsPrivateMethodProps {
   body: ObjectPayload;
   res: ResponseObject;
   req: RequestObject;
   query: ObjectPayload;
-  id?: string;
+  id?: string | null;
   customData?: any
-  idMethod?: {
-    post?: 'required' | 'optional',
-    get?: 'required' | 'optional',
-    put?: 'required' | 'optional',
-    delete?: 'required' | 'optional',
-    patch?: 'required' | 'optional',
-  }
 }
-export type AcceptHeaderValue = 'application/media' | 'application/text'

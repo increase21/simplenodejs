@@ -1,72 +1,84 @@
 import http, { IncomingMessage, ServerResponse } from "http";
+import https from "node:https";
+import qs from "node:querystring";
 import { route, setControllersDir } from "./router";
-import crypto from "node:crypto"
-import { ErrorMiddleware, Middleware, Plugin, RequestObject, ResponseObject, SimpleJsServer } from "./typings/general";
-import { composeWithError } from "./utils/helpers";
+import crypto from "node:crypto";
+import { ErrorMiddleware, Middleware, Plugin, RequestObject, ResponseObject, SimpleJsHttpsServer, SimpleJsServer } from "./typings/general";
+import { composeMiddleware, runErrorMiddlewares } from "./utils/helpers";
+
+type ServerOptions = {
+  controllersDir?: string;
+  tlsOpts?: https.ServerOptions,
+};
 
 const extension = (req: RequestObject, res: ResponseObject): void => {
-  //for response status
   res.status = (code: number): ResponseObject => {
-    if (!/^\d+/.test(String(code)) || typeof code !== "number") throw new Error("Status code expected to be number but got " + typeof code)
-    res.statusCode = code ? code : 200;
+    if (typeof code !== "number") throw new Error("Status code expected to be number but got " + typeof code);
+    res.statusCode = code ?? 200;
     return res;
-  }
-  ///convert the response to JSON
+  };
   res.json = (param: object): void => {
-    res.setHeader('Content-Type', 'application/json')
-    res.end(JSON.stringify(param))
-  }
-  //convert the response to text/plain
+    res.setHeader('Content-Type', 'application/json');
+    res.end(JSON.stringify(param));
+  };
   res.text = (param?: string): void => {
-    res.setHeader('Content-Type', 'text/plain')
-    res.end(param)
-  }
+    res.setHeader('Content-Type', 'text/plain');
+    res.end(param);
+  };
   const url = new URL(req.url!, "http://localhost");
-  req.query = url.search ? url.search.substring(1) : ''
-  //endpoint path
+  req.query = url.search ? qs.parse(url.search.substring(1)) : {};
   req._end_point_path = url.pathname.replace(/^\/+|\/+$/g, "").split("/");
-  //adding the request ID
   req.id = crypto.randomUUID();
   res.setHeader("X-Request-Id", req.id);
-}
+};
 
-export const CreateSimpleJsHttpServer = (handler?: (req: IncomingMessage, res: ServerResponse) => void, opts?: {
-  controllersDir: string
-}) => {
-  const middlewares: Middleware[] = [];
-  const errorMiddlewares: ErrorMiddleware[] = [];
-  const plugins: Plugin[] = [];
-  //set the director of the controller
-  if (opts?.controllersDir) setControllersDir(opts.controllersDir);
 
-  const server = http.createServer(async (req, res) => {
+function buildRequestHandler(middlewares: Middleware[], errorMiddlewares: ErrorMiddleware[]) {
+  return async (req: IncomingMessage, res: ServerResponse) => {
     try {
-      extension(req, res as ResponseObject)
-      const run = composeWithError(middlewares);
-      // handler && await handler(req, res)
+      extension(req as RequestObject, res as ResponseObject);
       if (res.writableEnded) return;
+      const run = composeMiddleware(middlewares);
       await run(req as RequestObject, res as ResponseObject);
-      //if the request has ended stop here
       if (res.writableEnded) return;
-      await route(req as RequestObject, res as ResponseObject)
+      await route(req as RequestObject, res as ResponseObject);
     } catch (err) {
-      // 1. Run error middlewares
-      for (const mw of errorMiddlewares) {
-        await mw(err, req as RequestObject, res as ResponseObject, () => { });
-      }
-      // 2. Safe HTTP response fallback
+      await runErrorMiddlewares(err, errorMiddlewares, req as RequestObject, res as ResponseObject);
       if (!res.headersSent) {
-        res.statusCode = 503;
-        res.end("No Error Handlers: Service unavailable at the moment");
+        let errorCode = (err as any || {}).code
+        res.statusCode = errorCode || 503;
+        res.end(errorCode ? (err as any).error : "Service unavailable");
       }
     }
-  }) as SimpleJsServer;
-
-  server.use = mw => { middlewares.push(mw) }
-  server.useError = mw => errorMiddlewares.push(mw);
-  server.registerPlugin = async (plugin) => {
-    plugins.push(plugin);
-    await plugin(server);
   };
-  return server;
 }
+
+function attachServerMethods(
+  server: SimpleJsServer | SimpleJsHttpsServer,
+  middlewares: Middleware[],
+  errorMiddlewares: ErrorMiddleware[],
+  opts?: ServerOptions
+): void {
+  server.use = mw => { middlewares.push(mw); };
+  server.useError = mw => { errorMiddlewares.push(mw); };
+  server.registerPlugin = async (plugin: Plugin) => { await plugin(server as SimpleJsServer); };
+}
+
+export const CreateSimpleJsHttpServer = (opts?: ServerOptions): SimpleJsServer => {
+  const middlewares: Middleware[] = [];
+  const errorMiddlewares: ErrorMiddleware[] = [];
+  if (opts && opts.controllersDir) setControllersDir(opts.controllersDir);
+  const server = http.createServer(buildRequestHandler(middlewares, errorMiddlewares)) as SimpleJsServer;
+  attachServerMethods(server, middlewares, errorMiddlewares, opts);
+  return server;
+};
+
+export const CreateSimpleJsHttpsServer = (opts?: ServerOptions): SimpleJsHttpsServer => {
+  const middlewares: Middleware[] = [];
+  const errorMiddlewares: ErrorMiddleware[] = [];
+  if (!opts?.tlsOpts) throw new Error("CreateSimpleJsHttpsServer requires opts.tlsOpts");
+  if (opts.controllersDir) setControllersDir(opts.controllersDir);
+  const server = https.createServer(opts.tlsOpts, buildRequestHandler(middlewares, errorMiddlewares)) as SimpleJsHttpsServer;
+  attachServerMethods(server, middlewares, errorMiddlewares, opts);
+  return server;
+};
