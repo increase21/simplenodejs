@@ -271,12 +271,44 @@ Parses the request body. Must be registered before controllers access `this.body
 | Param | Type | Description |
 |---|---|---|
 | `limit` | `string \| number` | Max body size (e.g. `"2mb"`, `"500kb"`, or bytes as number). Default: `"1mb"` |
+| `ignoreStream` | `string[] \| (req) => boolean` | Skip stream reading and pass the raw stream to the handler for matching requests. Accepts a list of path prefixes or a predicate function. |
 
 ```ts
 app.use(SetBodyParser({ limit: "2mb" }));
 ```
 
-> Multipart/form-data bodies are not buffered into memory — the size limit still applies to prevent oversized uploads.
+**`ignoreStream` — file upload / raw stream endpoints**
+
+For context where you need direct stream access (e.g. passing the request to a library like `formidable`), use `ignoreStream`:
+
+```ts
+// Path-prefix list — skip body parsing for any URL under /upload
+app.use(SetBodyParser({ limit: "10mb", ignoreStream: ["/upload", "/files"] }));
+
+// Predicate function — full control over which requests are skipped
+app.use(SetBodyParser({
+  limit: "10mb",
+  ignoreStream: (req) => req.url.startsWith("/upload"),
+}));
+```
+
+When a request is ignored, `next()` is called immediately with the stream untouched. Your handler is then responsible for consuming it:
+
+```ts
+import formidable from "formidable";
+
+// Inside your route handler
+const form = formidable({ maxTotalFileSize: 10 * 1024 * 1024 });
+form.parse(req, (err, fields, files) => {
+  if (err) {
+    // err.code 1009 = file too large, 1015 = total too large
+    if (err.code === 1009 || err.code === 1015)
+      return res.status(413).end("Payload Too Large");
+    return res.status(400).end("Upload Error");
+  }
+  res.json({ fields, files });
+});
+```
 
 ---
 

@@ -206,11 +206,21 @@ export function SetBodyParser(opts: SimpleJSBodyParseType) {
 
   return (req: RequestObject, res: ResponseObject, next: () => Promise<any> | void) => new Promise<void>((resolve, reject) => {
     const contentType = req.headers["content-type"] || "";
-    const isMultipart = contentType.includes("multipart/form-data");
+
+    const shouldIgnoreStream = (() => {
+      if (!opts.ignoreStream) return false;
+      if (typeof opts.ignoreStream === "function") return opts.ignoreStream(req);
+      const url = req.url || "";
+      return opts.ignoreStream.some(p => url === p || url.startsWith(p));
+    })();
+
+    // For simplicity, we only parse JSON and plain text. Multipart/form-data and other types are ignored.
+    if (shouldIgnoreStream) return resolve(next());
 
     let size = 0;
     let body = "";
-    !isMultipart && req.on("data", chunk => {
+
+    req.on("data", chunk => {
       size += chunk.length;
       if (maxSize && size > maxSize) {
         reject({ code: 413, error: "Payload Too Large" });
@@ -225,9 +235,9 @@ export function SetBodyParser(opts: SimpleJSBodyParseType) {
     req.on("end", () => {
       if (res.writableEnded) return resolve();
       try {
-        if (!isMultipart && body && contentType.includes("application/json")) {
+        if (body && contentType.includes("application/json")) {
           req.body = JSON.parse(body);
-        } else if (!isMultipart) {
+        } else {
           req.body = body;
         }
         resolve(next());
