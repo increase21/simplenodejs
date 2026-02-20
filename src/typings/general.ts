@@ -50,6 +50,6 @@ export interface SimpleJsPrivateMethodProps {
   res: ResponseObject;
   req: RequestObject;
   query: ObjectPayload;
+  customData: any
   id?: string;
-  customData?: any
 }

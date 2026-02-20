@@ -15,4 +15,4 @@ export {
   SetBodyParser,
 } from "./utils/simpleMiddleware"
 export * from "./utils/simplePlugins"
-export type { SimpleJsPrivateMethodProps, Middleware as SimpleJsMiddleware, SimpleJsHttpsServer } from "./typings/general";
+export type { SimpleJsPrivateMethodProps, Middleware as SimpleJsMiddleware, SimpleJsHttpsServer, RequestObject, ResponseObject } from "./typings/general";
