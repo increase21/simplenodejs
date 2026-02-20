@@ -52,7 +52,7 @@ export async function route(req: RequestObject, res: ResponseObject) {
   }
 
   //bind the controller to use the global properties
-  controller.__bindContext({ req, res });
+  (controller as any).__bindContext({ req, res });
 
   let result = await controller[methodName](...id);
 

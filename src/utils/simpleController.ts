@@ -10,7 +10,7 @@ export class SimpleNodeJsController {
   protected _custom_data!: any;
 
   /** @internal */
-  __bindContext(ctx: { req: RequestObject; res: ResponseObject; }) {
+  private __bindContext(ctx: { req: RequestObject; res: ResponseObject; }) {
     this.req = ctx.req;
     this.res = ctx.res;
     this.body = ctx.req.body
