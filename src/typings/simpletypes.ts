@@ -1,4 +1,4 @@
-import { HttpMethod, SimpleJsPrivateMethodProps } from "./general";
+import { HttpMethod, RequestObject, SimpleJsPrivateMethodProps } from "./general";
 
 export type SimpleJSRateLimitType = { windowMs: number; max: number; trustProxy?: boolean; keyGenerator?: (req: any) => string }
 export type SimpleJSBodyParseType = {
@@ -8,7 +8,7 @@ export type SimpleJSBodyParseType = {
    * Accepts a list of path prefixes or a predicate function.
    * Multipart requests are always skipped regardless of this option.
    */
-  ignoreStream?: string[] | ((req: any) => boolean);
+  ignoreStream?: string[] | ((req: RequestObject) => boolean);
 }
 
 export interface SimpleJsControllerMeta {

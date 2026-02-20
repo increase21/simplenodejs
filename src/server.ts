@@ -1,8 +1,7 @@
 import http, { IncomingMessage, ServerResponse } from "http";
 import https from "node:https";
-import qs from "node:querystring";
-import { route, setControllersDir } from "./router";
 import crypto from "node:crypto";
+import { route, setControllersDir } from "./router";
 import { ErrorMiddleware, Middleware, Plugin, RequestObject, ResponseObject, SimpleJsHttpsServer, SimpleJsServer } from "./typings/general";
 import { composeMiddleware, runErrorMiddlewares } from "./utils/helpers";
 
@@ -26,10 +25,9 @@ const extension = (req: RequestObject, res: ResponseObject): void => {
     res.end(param);
   };
   const url = new URL(req.url!, "http://localhost");
-  req.query = url.search ? qs.parse(url.search.substring(1)) : {};
+  req.query = url.search ? Object.fromEntries(url.searchParams.entries()) : {};
   req._end_point_path = url.pathname.replace(/^\/+|\/+$/g, "").split("/");
-  req.id = crypto.randomUUID();
-  res.setHeader("X-Request-Id", req.id);
+  res.setHeader("X-Request-Id", crypto.randomUUID());
 };
 
 
