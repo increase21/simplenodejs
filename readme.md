@@ -93,7 +93,7 @@ app.listen(443);
 
 ## Controllers
 
-Controllers are auto-loaded from `controllersDir` at startup. The file path maps directly to the URL.
+Controllers are auto-loaded from `controllersDir` at startup. The file path maps directly to a URL. Controllers must be exported as the default export; otherwise, requests to that controller will return a 404 error.
 
 ```
 controllers/
