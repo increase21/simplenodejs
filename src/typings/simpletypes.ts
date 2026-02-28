@@ -7,8 +7,9 @@ export type SimpleJSBodyParseType = {
    * Skip stream reading (and pass the raw stream to the handler) for matching requests.
    * Accepts a list of path prefixes or a predicate function.
    * Multipart requests are always skipped regardless of this option.
+   * The `type` field determines whether the URL should be matched exactly (`exact`) or as a prefix (`prefix`).
    */
-  ignoreStream?: { url: string, method: HttpMethod }[] | ((req: RequestObject) => boolean);
+  ignoreStream?: { url: string, method: HttpMethod, type: 'exact' | 'prefix' }[] | ((req: RequestObject) => boolean);
 }
 
 export interface SimpleJsControllerMeta {

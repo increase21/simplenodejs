@@ -212,7 +212,7 @@ export function SetBodyParser(opts: SimpleJSBodyParseType) {
       if (typeof opts.ignoreStream === "function") return opts.ignoreStream(req);
       const url = req.url || "";
       const method = ((req.method || "").toLowerCase() as HttpMethod);
-      return opts.ignoreStream.some(p => (url === p.url || url.startsWith(p.url)) && method === p.method);
+      return opts.ignoreStream.some(p => (p.type === "exact" ? url === p.url : url.startsWith(p.url)) && method === p.method);
     })();
 
     // For simplicity, we only parse JSON and plain text. Multipart/form-data and other types are ignored.

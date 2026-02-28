@@ -271,7 +271,7 @@ Parses the request body. Must be registered before controllers access `this.body
 | Param | Type | Description |
 |---|---|---|
 | `limit` | `string \| number` | Max body size (e.g. `"2mb"`, `"500kb"`, or bytes as number). Default: `"1mb"` |
-| `ignoreStream` | `{url:string, method:string}[] \| (req) => boolean` | Skip stream reading and pass the raw stream to the handler for matching requests. Accepts a list of path prefixes and their http menthods or a predicate function. |
+| `ignoreStream` | `{url:string, method:string, type: exact or prefex}[] \| (req) => boolean` | Skip stream reading and pass the raw stream to the handler for matching requests. Accepts a list of path prefixes and their http menthods or a predicate function. The `type` field determines whether the URL should be matched exactly (`exact`) or as a prefix (`prefix`) |
 
 ```ts
 app.use(SetBodyParser({ limit: "2mb" }));
