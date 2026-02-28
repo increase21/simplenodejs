@@ -1,4 +1,4 @@
-import { RequestObject, ResponseObject } from "../typings/general";
+import { HttpMethod, RequestObject, ResponseObject } from "../typings/general";
 import { SimpleJSBodyParseType, SimpleJSRateLimitType } from "../typings/simpletypes";
 import { throwHttpError } from "./helpers";
 
@@ -211,7 +211,8 @@ export function SetBodyParser(opts: SimpleJSBodyParseType) {
       if (!opts.ignoreStream) return false;
       if (typeof opts.ignoreStream === "function") return opts.ignoreStream(req);
       const url = req.url || "";
-      return opts.ignoreStream.some(p => url === p || url.startsWith(p));
+      const method = ((req.method || "").toLowerCase() as HttpMethod);
+      return opts.ignoreStream.some(p => (url === p.url || url.startsWith(p.url)) && method === p.method);
     })();
 
     // For simplicity, we only parse JSON and plain text. Multipart/form-data and other types are ignored.

@@ -271,7 +271,7 @@ Parses the request body. Must be registered before controllers access `this.body
 | Param | Type | Description |
 |---|---|---|
 | `limit` | `string \| number` | Max body size (e.g. `"2mb"`, `"500kb"`, or bytes as number). Default: `"1mb"` |
-| `ignoreStream` | `string[] \| (req) => boolean` | Skip stream reading and pass the raw stream to the handler for matching requests. Accepts a list of path prefixes or a predicate function. |
+| `ignoreStream` | `{url:string, method:string}[] \| (req) => boolean` | Skip stream reading and pass the raw stream to the handler for matching requests. Accepts a list of path prefixes and their http menthods or a predicate function. |
 
 ```ts
 app.use(SetBodyParser({ limit: "2mb" }));
@@ -283,7 +283,7 @@ For context where you need direct stream access (e.g. passing the request to a l
 
 ```ts
 // Path-prefix list — skip body parsing for any URL under /upload
-app.use(SetBodyParser({ limit: "10mb", ignoreStream: ["/upload", "/files"] }));
+app.use(SetBodyParser({ limit: "10mb", ignoreStream: [{url:"/upload", method:"post"}, {url:"/files/profile-picture", method:"post"}] }));
 
 // Predicate function — full control over which requests are skipped
 app.use(SetBodyParser({
@@ -297,7 +297,7 @@ When a request is ignored, `next()` is called immediately with the stream untouc
 ```ts
 import formidable from "formidable";
 
-// Inside your route handler
+// Inside your controller handler
 const form = formidable({ maxTotalFileSize: 10 * 1024 * 1024 });
 form.parse(req, (err, fields, files) => {
   if (err) {

@@ -8,7 +8,7 @@ export type SimpleJSBodyParseType = {
    * Accepts a list of path prefixes or a predicate function.
    * Multipart requests are always skipped regardless of this option.
    */
-  ignoreStream?: string[] | ((req: RequestObject) => boolean);
+  ignoreStream?: { url: string, method: HttpMethod }[] | ((req: RequestObject) => boolean);
 }
 
 export interface SimpleJsControllerMeta {
