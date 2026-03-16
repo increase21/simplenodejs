@@ -122,9 +122,9 @@ export default class AuthController {
 
   async account(_ctx: SimpleJsCtx, id: string): Promise<SimpleJsEndpointDescriptor[]> {
     return [
-      { method: "get",    id: "optional",  handler: this.getAccount },
-      { method: "put",    id: "required",  handler: this.updateAccount },
-      { method: "delete", id: "required",  handler: this.deleteAccount },
+      { method: "get",    id: "optional",  handler: getAccount },
+      { method: "put",    id: "required",  handler: updateAccount },
+      { method: "delete", id: "required",  handler: deleteAccount },
     ];
   }
 }
@@ -285,7 +285,7 @@ For context where you need direct stream access (e.g. passing the request to a l
 
 ```ts
 // Path-prefix list — skip body parsing for any URL under /upload
-app.use(SetBodyParser({ limit: "10mb", ignoreStream: [{url:"/upload", method:"post"}, {url:"/files/profile-picture", method:"post"}] }));
+app.use(SetBodyParser({ limit: "10mb", ignoreStream: [{url:"/upload", method:"post", type:"prefix"}, {url:"/files/profile-picture", method:"post", type:"exact"}] }));
 
 // Predicate function — full control over which requests are skipped
 app.use(SetBodyParser({
@@ -295,22 +295,6 @@ app.use(SetBodyParser({
 ```
 
 When a request is ignored, `next()` is called immediately with the stream untouched. Your handler is then responsible for consuming it:
-
-```ts
-import formidable from "formidable";
-
-// Inside your controller handler
-const form = formidable({ maxTotalFileSize: 10 * 1024 * 1024 });
-form.parse(req, (err, fields, files) => {
-  if (err) {
-    // err.code 1009 = file too large, 1015 = total too large
-    if (err.code === 1009 || err.code === 1015)
-      return res.status(413).end("Payload Too Large");
-    return res.status(400).end("Upload Error");
-  }
-  res.json({ fields, files });
-});
-```
 
 ---
 
