@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import net from "node:net";
-import { RequestObject, ResponseObject, SimpleJsServer } from "../typings/general";
-import { SimpleJSRateLimitType } from "../typings/simpletypes";
+import { RequestObject, ResponseObject } from "../typings/general";
+import { SimpleJSRateLimitType, SimpleJsServer } from "../typings/simpletypes";
 import { throwHttpError } from "./helpers";
 import { SetCORS, SetHelmet, SetRateLimiter } from "./simpleMiddleware";
 
@@ -38,10 +38,11 @@ export function SimpleJsIPWhitelistPlugin(app: SimpleJsServer, opts: {
   const ipSet = new Set(opts.ips);
 
   app.use(async (req: RequestObject, _res: ResponseObject, next: any) => {
+    const xff = String(req.headers["x-forwarded-for"] || "");
     const raw = opts.trustProxy
       ? (Array.isArray(req.headers["x-forwarded-for"])
         ? req.headers["x-forwarded-for"][0]
-        : String(req.headers["x-forwarded-for"] || "").split(",")[0].trim()) || req.socket.remoteAddress || ""
+        : (xff.indexOf(",") >= 0 ? xff.slice(0, xff.indexOf(",")) : xff).trim()) || req.socket.remoteAddress || ""
       : req.socket.remoteAddress || "";
 
     const ip = normalizeIP(raw);
@@ -56,7 +57,7 @@ export function SimpleJsIPWhitelistPlugin(app: SimpleJsServer, opts: {
 
 // ─── Cookie Plugin ────────────────────────────────────────────────────────────
 function parseCookieHeader(header: string): Record<string, string> {
-  const result: Record<string, string> = {};
+  const result = Object.create(null) as Record<string, string>;
   for (const part of header.split(";")) {
     const idx = part.indexOf("=");
     if (idx < 0) continue;
@@ -97,7 +98,7 @@ export function SimpleJsCookiePlugin(app: SimpleJsServer, opts?: {
     const raw = parseCookieHeader(req.headers.cookie || "");
 
     if (opts?.secret) {
-      const verified: Record<string, string> = {};
+      const verified = Object.create(null) as Record<string, string>;
       for (const [k, v] of Object.entries(raw)) {
         if (v.startsWith("s:")) {
           const inner = v.slice(2);
@@ -229,10 +230,11 @@ export function SimpleJsMaintenanceModePlugin(app: SimpleJsServer, opts: {
   app.use(async (req: RequestObject, res: ResponseObject, next: any) => {
     if (!opts.enabled) return next();
 
+    const xff2 = String(req.headers["x-forwarded-for"] || "");
     const raw = opts.trustProxy
       ? (Array.isArray(req.headers["x-forwarded-for"])
         ? req.headers["x-forwarded-for"][0]
-        : String(req.headers["x-forwarded-for"] || "").split(",")[0].trim()) || req.socket.remoteAddress || ""
+        : (xff2.indexOf(",") >= 0 ? xff2.slice(0, xff2.indexOf(",")) : xff2).trim()) || req.socket.remoteAddress || ""
       : req.socket.remoteAddress || "";
 
     const ip = normalizeIP(raw);

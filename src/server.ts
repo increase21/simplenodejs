@@ -2,7 +2,8 @@ import http, { IncomingMessage, ServerResponse } from "http";
 import https from "node:https";
 import crypto from "node:crypto";
 import { route, setControllersDir } from "./router";
-import { ErrorMiddleware, Middleware, Plugin, RequestObject, ResponseObject, SimpleJsHttpsServer, SimpleJsServer } from "./typings/general";
+import { RequestObject, ResponseObject } from "./typings/general";
+import { ErrorMiddleware, Middleware, Plugin, SimpleJsHttpsServer, SimpleJsServer } from "./typings/simpletypes";
 import { composeMiddleware, runErrorMiddlewares } from "./utils/helpers";
 
 type ServerOptions = {

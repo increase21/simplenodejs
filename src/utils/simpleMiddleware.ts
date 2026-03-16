@@ -44,8 +44,9 @@ export function SetHSTS(opts?: { maxAge?: number; includeSubDomains?: boolean; p
 
 // ─── Content Security Policy ──────────────────────────────────────────────────
 export function SetCSP(policy = "default-src 'none'") {
+  const safePolicy = policy.replace(/[\r\n]/g, "");
   return async (_req: RequestObject, res: ResponseObject, next: any) => {
-    res.setHeader("Content-Security-Policy", policy);
+    res.setHeader("Content-Security-Policy", safePolicy);
     await next();
   };
 }
@@ -68,32 +69,36 @@ export function SetNoSniff() {
 
 // ─── Referrer-Policy ──────────────────────────────────────────────────────────
 export function SetReferrerPolicy(policy = "no-referrer") {
+  const safePolicy = policy.replace(/[\r\n]/g, "");
   return async (_req: RequestObject, res: ResponseObject, next: any) => {
-    res.setHeader("Referrer-Policy", policy);
+    res.setHeader("Referrer-Policy", safePolicy);
     await next();
   };
 }
 
 // ─── Permissions-Policy (browser feature control) ────────────────────────────
 export function SetPermissionsPolicy(policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), display-capture=()") {
+  const safePolicy = policy.replace(/[\r\n]/g, "");
   return async (_req: RequestObject, res: ResponseObject, next: any) => {
-    res.setHeader("Permissions-Policy", policy);
+    res.setHeader("Permissions-Policy", safePolicy);
     await next();
   };
 }
 
 // ─── Cross-Origin-Embedder-Policy ────────────────────────────────────────────
 export function SetCOEP(value = "require-corp") {
+  const safeValue = value.replace(/[\r\n]/g, "");
   return async (_req: RequestObject, res: ResponseObject, next: any) => {
-    res.setHeader("Cross-Origin-Embedder-Policy", value);
+    res.setHeader("Cross-Origin-Embedder-Policy", safeValue);
     await next();
   };
 }
 
 // ─── Cross-Origin-Opener-Policy ──────────────────────────────────────────────
 export function SetCOOP(value = "same-origin") {
+  const safeValue = value.replace(/[\r\n]/g, "");
   return async (_req: RequestObject, res: ResponseObject, next: any) => {
-    res.setHeader("Cross-Origin-Opener-Policy", value);
+    res.setHeader("Cross-Origin-Opener-Policy", safeValue);
     await next();
   };
 }
@@ -114,13 +119,13 @@ export function SetHelmet(opts?: {
       res.setHeader("X-Content-Type-Options", "nosniff");
 
     if (opts?.frameGuard !== false)
-      res.setHeader("X-Frame-Options", typeof opts?.frameGuard === "string" ? opts.frameGuard : "DENY");
+      res.setHeader("X-Frame-Options", typeof opts?.frameGuard === "string" ? opts.frameGuard.replace(/[\r\n]/g, "") : "DENY");
 
     if (opts?.referrerPolicy !== false)
-      res.setHeader("Referrer-Policy", typeof opts?.referrerPolicy === "string" ? opts.referrerPolicy : "no-referrer");
+      res.setHeader("Referrer-Policy", typeof opts?.referrerPolicy === "string" ? opts.referrerPolicy.replace(/[\r\n]/g, "") : "no-referrer");
 
     if (opts?.csp !== false)
-      res.setHeader("Content-Security-Policy", typeof opts?.csp === "string" ? opts.csp : "default-src 'none'");
+      res.setHeader("Content-Security-Policy", typeof opts?.csp === "string" ? opts.csp.replace(/[\r\n]/g, "") : "default-src 'none'");
 
     if (opts?.hsts !== false) {
       const hsts = (opts?.hsts && typeof opts.hsts === "object") ? opts.hsts : {};
@@ -131,13 +136,13 @@ export function SetHelmet(opts?: {
     }
 
     if (opts?.permissionsPolicy !== false)
-      res.setHeader("Permissions-Policy", typeof opts?.permissionsPolicy === "string" ? opts.permissionsPolicy : "camera=(), microphone=(), geolocation=(), payment=(), usb=(), display-capture=()");
+      res.setHeader("Permissions-Policy", typeof opts?.permissionsPolicy === "string" ? opts.permissionsPolicy.replace(/[\r\n]/g, "") : "camera=(), microphone=(), geolocation=(), payment=(), usb=(), display-capture=()");
 
     if (opts?.coep !== false)
-      res.setHeader("Cross-Origin-Embedder-Policy", typeof opts?.coep === "string" ? opts.coep : "require-corp");
+      res.setHeader("Cross-Origin-Embedder-Policy", typeof opts?.coep === "string" ? opts.coep.replace(/[\r\n]/g, "") : "require-corp");
 
     if (opts?.coop !== false)
-      res.setHeader("Cross-Origin-Opener-Policy", typeof opts?.coop === "string" ? opts.coop : "same-origin");
+      res.setHeader("Cross-Origin-Opener-Policy", typeof opts?.coop === "string" ? opts.coop.replace(/[\r\n]/g, "") : "same-origin");
 
     await next();
   };
@@ -158,10 +163,11 @@ export function SetRateLimiter(opts: SimpleJSRateLimitType) {
   timer.unref();
 
   return async (req: RequestObject, res: ResponseObject, next: () => Promise<any> | void) => {
+    const xff = String(req.headers["x-forwarded-for"] || "");
     const ip = opts.trustProxy
       ? (Array.isArray(req.headers["x-forwarded-for"])
         ? req.headers["x-forwarded-for"][0]
-        : String(req.headers["x-forwarded-for"] || "").split(",")[0].trim()) || req.socket.remoteAddress || "unknown"
+        : (xff.indexOf(",") >= 0 ? xff.slice(0, xff.indexOf(",")) : xff).trim()) || req.socket.remoteAddress || "unknown"
       : req.socket.remoteAddress || "unknown";
 
     const key = String(opts.keyGenerator?.(req) || ip || "unknown");
@@ -219,7 +225,7 @@ export function SetBodyParser(opts: SimpleJSBodyParseType) {
     if (shouldIgnoreStream) return resolve(next());
 
     let size = 0;
-    let body = "";
+    const chunks: Buffer[] = [];
 
     req.on("data", chunk => {
       size += chunk.length;
@@ -230,12 +236,13 @@ export function SetBodyParser(opts: SimpleJSBodyParseType) {
         req.socket.destroy();
         return;
       }
-      body += chunk;
+      chunks.push(chunk);
     });
 
     req.on("end", () => {
       if (res.writableEnded) return resolve();
       try {
+        const body = Buffer.concat(chunks).toString();
         if (body && contentType.includes("application/json")) {
           req.body = JSON.parse(body);
         } else {

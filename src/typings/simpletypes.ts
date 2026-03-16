@@ -1,5 +1,8 @@
-import { HttpMethod, RequestObject, SimpleJsPrivateMethodProps } from "./general";
-
+import { HttpMethod, ObjectPayload, RequestObject, ResponseObject } from "./general";
+import http from "node:http";
+import https from "node:https";
+export type Next = () => Promise<any> | void;
+export type Plugin = (app: SimpleJsServer, opts?: any) => Promise<any> | void;
 export type SimpleJSRateLimitType = { windowMs: number; max: number; trustProxy?: boolean; keyGenerator?: (req: any) => string }
 export type SimpleJSBodyParseType = {
   limit?: string | number;
@@ -17,11 +20,42 @@ export interface SimpleJsControllerMeta {
   Controller: any;
 }
 
-export interface SubRequestHandler {
-  post?: (params: SimpleJsPrivateMethodProps) => void;
-  put?: (params: SimpleJsPrivateMethodProps) => void;
-  get?: (params: SimpleJsPrivateMethodProps) => void;
-  delete?: (params: SimpleJsPrivateMethodProps) => void;
-  patch?: (params: SimpleJsPrivateMethodProps) => void;
-  id?: Partial<Record<HttpMethod, "required" | "optional">>;
+
+export type Middleware = (
+  req: RequestObject,
+  res: ResponseObject,
+  next: () => Promise<any> | void,
+) => Promise<any> | void;
+
+export type ErrorMiddleware = (
+  err: any,
+  req: RequestObject,
+  res: ResponseObject,
+  next: Next
+) => Promise<boolean> | void;
+
+export interface SimpleJsServer extends http.Server {
+  use(mw: Middleware): Promise<any> | void;
+  useError: (mw: ErrorMiddleware) => void;
+  registerPlugin: (plugin: Plugin) => Promise<any> | void;
+}
+
+export interface SimpleJsHttpsServer extends https.Server {
+  use(mw: Middleware): Promise<any> | void;
+  useError: (mw: ErrorMiddleware) => void;
+  registerPlugin: (plugin: Plugin) => Promise<any> | void;
+}
+
+export interface SimpleJsCtx {
+  body: ObjectPayload;
+  res: ResponseObject;
+  req: RequestObject;
+  query: ObjectPayload;
+  customData: any;
+}
+
+export interface SimpleJsEndpointDescriptor {
+  method: HttpMethod;
+  id?: "required" | "optional";
+  handler: (ctx: SimpleJsCtx, id?: string) => any;
 }

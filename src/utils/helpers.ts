@@ -1,7 +1,7 @@
 import path from "node:path";
-import { ErrorMiddleware, Middleware, RequestObject, ResponseObject } from "../typings/general";
 import fs from "node:fs";
-import { SimpleJsControllerMeta } from "../typings/simpletypes";
+import { RequestObject, ResponseObject } from "../typings/general";
+import { ErrorMiddleware, Middleware, SimpleJsControllerMeta } from "../typings/simpletypes";
 
 export function composeMiddleware(middlewares: Middleware[]) {
   return async function (req: RequestObject, res: ResponseObject) {
@@ -58,8 +58,8 @@ export function loadControllers(root = "controllers"): Map<string, SimpleJsContr
   const map = new Map<string, SimpleJsControllerMeta>();
 
   function walk(dir: string) {
-    for (const file of fs.readdirSync(dir)) {
-      const full = path.join(dir, file);
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
 
       let realFull: string;
       try {
@@ -71,9 +71,10 @@ export function loadControllers(root = "controllers"): Map<string, SimpleJsContr
       // Block anything whose real path is outside the controllers directory
       if (!realFull.startsWith(realBase + path.sep)) continue;
 
-      if (fs.statSync(full).isDirectory()) walk(full);
-      else if (file.endsWith(".js") || file.endsWith(".ts")) {
-        const Controller = require(full)?.default;
+      const isDir = entry.isDirectory() || (entry.isSymbolicLink() && fs.statSync(realFull).isDirectory());
+      if (isDir) walk(full);
+      else if (entry.name.endsWith(".js") || entry.name.endsWith(".ts")) {
+        const Controller = require(realFull)?.default;  // use realFull to prevent TOCTOU
         if (typeof Controller !== "function") continue;
         const key = full.slice(base.length).replace(/\\/g, "/").replace(/\.(ts|js)$/, "");
         map.set(key.toLowerCase(), { name: Controller.name, Controller });

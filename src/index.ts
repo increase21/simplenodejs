@@ -1,4 +1,3 @@
-export { SimpleNodeJsController } from "./utils/simpleController";
 export { CreateSimpleJsHttpServer, CreateSimpleJsHttpsServer } from "./server";
 export {
   SetCORS,
@@ -15,4 +14,8 @@ export {
   SetBodyParser,
 } from "./utils/simpleMiddleware"
 export * from "./utils/simplePlugins"
-export type { SimpleJsPrivateMethodProps, Middleware as SimpleJsMiddleware, SimpleJsHttpsServer, RequestObject, ResponseObject } from "./typings/general";
+export type { RequestObject, ResponseObject } from "./typings/general";
+export type {
+  SimpleJsCtx, SimpleJsEndpointDescriptor, SimpleJsHttpsServer,
+  Middleware as SimpleJsMiddleware, ErrorMiddleware as SimpleJsErrorMiddleware
+} from "./typings/simpletypes";

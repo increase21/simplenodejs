@@ -105,51 +105,27 @@ controllers/
     accountProfiles    → /drivers/account-profiles
 ```
 
-### Using __run
-
-`__run` dispatches to the correct handler based on the HTTP method and enforces method-level ID validation.
+Controllers are plain classes — no base class required. Each method represents an endpoint and returns an array of `SimpleJsEndpointDescriptor` objects that declare which HTTP methods are supported and which handler to call.
 
 ```ts
 // controllers/drivers/auths.ts
-import { SimpleNodeJsController, SimpleJsPrivateMethodProps } from "@increase21/simplenodejs";
+import { SimpleJsCtx, SimpleJsEndpointDescriptor } from "@increase21/simplenodejs";
 
-export default class AuthController extends SimpleNodeJsController {
-  async login() {
-    return this.__run({
-      post: () => { // handle POST /drivers/auths/login
-        return { token: "..." };
-      },
-    });
+export default class AuthController {
+
+  async login(_ctx: SimpleJsCtx): Promise<SimpleJsEndpointDescriptor[]> {
+    return [
+      { method: "get",    handler: getLogin, middleware:LoginGetMiddleware },
+      { method: "post",   handler: postLogin, middleware:LoginPostMiddleware },
+    ];
   }
 
-  async account(id: string) {
-    return this.__run({
-        get: () => {
-          // handle GET  /drivers/auths/account/:id
-        },
-        put: () => {
-          // handle PUT  /drivers/auths/account/:id
-        },
-        delete: () => {
-          // handle DELETE  /drivers/auths/account/:id
-        },
-        id:{get:"optional", delete:"required",put:"required"}
-      },
-    );
-  }
-}
-```
-
-### Without __run
-
-```ts
-export default class AuthController extends SimpleNodeJsController {
-  async login() {
-    if (this.method !== "post") return this.res.status(405).json({ error: "Method Not Allowed" });
-
-    const { email, password } = this.body;
-    // ... your logic
-    return this.res.status(200).json({ token: "..." });
+  async account(_ctx: SimpleJsCtx, id: string): Promise<SimpleJsEndpointDescriptor[]> {
+    return [
+      { method: "get",    id: "optional",  handler: this.getAccount },
+      { method: "put",    id: "required",  handler: this.updateAccount },
+      { method: "delete", id: "required",  handler: this.deleteAccount },
+    ];
   }
 }
 ```
@@ -162,13 +138,29 @@ Controller methods use **camelCase** and are exposed as **kebab-case** URLs.
 |---|---|
 | `async index()` | `/drivers/auths` |
 | `async login()` | `/drivers/auths/login` |
-| `async vehicleList(id)` | `/drivers/auths/vehicle-list` or `/drivers/auths/vehicle-list/:id` |
+| `async vehicleList()` | `/drivers/auths/vehicle-list` |
+
+### ID Parameters
+
+Declare `id` in the endpoint method signature to indicate it accepts an ID segment. Use the descriptor's `id` field to enforce whether it is required or optional at the routing level.
+
+```ts
+// GET  /drivers/auths/account        → id is optional
+// GET  /drivers/auths/account/123    → id = "123"
+// PUT  /drivers/auths/account/123    → required, 404 if missing
+async account(_ctx: SimpleJsCtx, id?: string): Promise<SimpleJsEndpointDescriptor[]> {
+  return [
+    { method: "get", id: "optional", handler: getAccount },
+    { method: "put", id: "required", handler: updateAccount },
+  ];
+}
+```
 
 ---
 
-## SimpleJsPrivateMethodProps
+## SimpleJsCtx
 
-Properties available inside `__run` handlers.
+The context object passed to every endpoint method and handler.
 
 | Property | Type | Description |
 |---|---|---|
@@ -176,8 +168,18 @@ Properties available inside `__run` handlers.
 | `res` | `ResponseObject` | Raw response object |
 | `body` | `object` | Parsed request body |
 | `query` | `object` | Parsed query string |
-| `id` | `string \| undefined` | URL path parameter |
 | `customData` | `any` | Data attached by plugins/middlewares via `req._custom_data` |
+
+## SimpleJsEndpointDescriptor
+
+Returned by endpoint methods to declare HTTP method handlers.
+
+| Property | Type | Required | Description |
+|---|---|---|---|
+| `method` | `HttpMethod` | ✅ | HTTP verb: `"get"`, `"post"`, `"put"`, `"patch"`, `"delete"` |
+| `handler` | `(ctx, id?) => any` | ✅ | Method reference to call for this HTTP verb |
+| `id` | `"required" \| "optional"` | ❌ | ID routing rule. Omit if the endpoint never uses an ID |
+| `middleware` | `(req, res, next)` | ❌ | A function to execute before the handler is called |
 
 ---
 
@@ -266,7 +268,7 @@ app.registerPlugin(app => SimpleJsSecurityPlugin(app, opt));
 
 ## SetBodyParser(options)
 
-Parses the request body. Must be registered before controllers access `this.body`.
+Parses the request body. Must be registered before controllers access `ctx.body`.
 
 | Param | Type | Description |
 |---|---|---|
@@ -448,12 +450,12 @@ app.registerPlugin(app => SimpleJsCookiePlugin(app, {
   secret: process.env.COOKIE_SECRET,
 }));
 
-// Set a signed cookie in a controller
+// Set a signed cookie in a handler
 const signed = SignCookie(sessionId, process.env.COOKIE_SECRET!);
-this.res.setHeader("Set-Cookie", `session=${signed}; HttpOnly; Secure; SameSite=Strict`);
+ctx.res.setHeader("Set-Cookie", `session=${signed}; HttpOnly; Secure; SameSite=Strict`);
 
-// Read cookie in any controller
-const { session } = this._custom_data.cookies;
+// Read cookie in any handler
+const { session } = ctx.customData.cookies;
 ```
 
 ---
