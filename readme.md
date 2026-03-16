@@ -285,7 +285,13 @@ For context where you need direct stream access (e.g. passing the request to a l
 
 ```ts
 // Path-prefix list — skip body parsing for any URL under /upload
-app.use(SetBodyParser({ limit: "10mb", ignoreStream: [{url:"/upload", method:"post", type:"prefix"}, {url:"/files/profile-picture", method:"post", type:"exact"}] }));
+app.use(SetBodyParser({ 
+  limit: "10mb", 
+  ignoreStream: [
+    {url:"/files/", method:"post", type:"prefix"}, 
+    {url:"/files/profile-picture", method:"post", type:"exact"}
+  ] 
+  }));
 
 // Predicate function — full control over which requests are skipped
 app.use(SetBodyParser({
