@@ -290,7 +290,7 @@ app.use(SetBodyParser({
   ignoreStream: [
     {url:"/files/", method:"post", type:"prefix"}, 
     {url:"/files/profile-picture", method:"post", type:"exact"}
-  ] 
+  ]
   }));
 
 // Predicate function — full control over which requests are skipped
