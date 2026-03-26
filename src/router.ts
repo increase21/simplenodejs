@@ -59,7 +59,7 @@ export async function route(req: RequestObject, res: ResponseObject) {
   //also add the context to the controller instance so that it can be accessed in the methods without passing it as a parameter
   controller.ctx = ctx;
 
-  const descriptors: SimpleJsEndpoint = await controller[methodName](ctx, ...id)
+  const descriptors: SimpleJsEndpoint = await controller[methodName](...id)
   // If the controller method has already sent a response, do not proceed
   if (res.writableEnded) return
 
