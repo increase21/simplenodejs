@@ -1,6 +1,6 @@
 // router.ts
 import { HttpMethod, RequestObject, ResponseObject } from "./typings/general";
-import { SimpleJsControllerMeta, SimpleJsCtx } from "./typings/simpletypes";
+import { SimpleJsControllerMeta, SimpleJsCtx, SimpleJsEndpoint } from "./typings/simpletypes";
 import { loadControllers, composeMiddleware, throwHttpError } from "./utils/helpers";
 let controllers = new Map<string, SimpleJsControllerMeta>();
 
@@ -54,14 +54,12 @@ export async function route(req: RequestObject, res: ResponseObject) {
     }
   }
   //checking if the method does not require id but id is provided, if so, return 404
-  if (id.length && (!controller[methodName].length || controller[methodName].length === 1)) {
-    return throwHttpError(404, "Resource not found")
-  }
+  if (id.length && !controller[methodName].length) return throwHttpError(404, "Resource not found")
 
   //also add the context to the controller instance so that it can be accessed in the methods without passing it as a parameter
   controller.ctx = ctx;
 
-  const descriptors = await controller[methodName](ctx, ...id)
+  const descriptors: SimpleJsEndpoint = await controller[methodName](ctx, ...id)
   // If the controller method has already sent a response, do not proceed
   if (res.writableEnded) return
 
@@ -69,7 +67,7 @@ export async function route(req: RequestObject, res: ResponseObject) {
   if (!descriptors || !Array.isArray(descriptors)) return res.end()
 
   // Find the descriptor matching the HTTP method
-  const descriptor = descriptors.find((d: any) => d.method === httpMethod)
+  const descriptor = descriptors.find(d => d.method === httpMethod)
 
   if (!descriptor) return throwHttpError(405, "Method Not Allowed")
 
@@ -78,7 +76,7 @@ export async function route(req: RequestObject, res: ResponseObject) {
   if (descriptor.id === "required" && !id.length) return throwHttpError(404, "Resource not found")
 
   // Run endpoint-level middlewares before the handler
-  if (descriptor.middleware?.length) {
+  if (descriptor.middleware && descriptor.middleware.length) {
     await composeMiddleware(descriptor.middleware)(req, res);
   }
   // If the handler has already sent a response, do not proceed
