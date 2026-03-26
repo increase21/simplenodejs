@@ -107,29 +107,33 @@ controllers/
 
 Controllers are plain classes — no base class required. Each method represents an endpoint and returns a `SimpleJsEndpoint` (an array of `SimpleJsEndpointDescriptor` objects) that declares which HTTP methods are supported and which handler to call.
 
+Every controller receives the request context (`SimpleJsCtx`) via its constructor and it is also available as `this.ctx` anywhere inside the class — in endpoint methods, descriptor handlers, and private helpers.
+
 ```ts
 // controllers/drivers/auths.ts
 import { SimpleJsCtx, SimpleJsEndpoint } from "@increase21/simplenodejs";
 
 export default class AuthController {
+  ctx: SimpleJsCtx;
 
-  // running single method without SimpleJsEndpoint
+  // single HTTP method — access this.ctx directly, no descriptor needed
   async login(): Promise<void> {
-    if(this.ctx.method !=="post") return this.ctx.status(405).json({error:"Method Not Allowed"})
-    //rest of the code to execute below
-    //....
+    if (this.ctx.method !== "post") return this.ctx.res.status(405).json({ error: "Method Not Allowed" });
+    // handler logic...
   }
 
-  // running multiple methods, it must be returned as SimpleJsEndpoint 
-  async vehicleList(id: string): Promise<SimpleJsEndpoint> {
+  // multiple HTTP methods — return a SimpleJsEndpoint array
+  async vehicleList(id?: string): Promise<SimpleJsEndpoint> {
     return [
-      { method: "get",    id: "optional",  handler: getAccount },
-      { method: "put",    id: "required",  handler: updateAccount },
-      { method: "delete", id: "required",  handler: deleteAccount },
+      { method: "get",    id: "optional", handler: getVehicles },
+      { method: "put",    id: "required", handler: updateVehicle },
+      { method: "delete", id: "required", handler: deleteVehicle },
     ];
   }
 }
 ```
+
+> `this.ctx` is injected automatically by the router on every request. You do not need to pass it around manually — it is always available anywhere in the class.
 
 ### Endpoint Naming
 
@@ -156,7 +160,7 @@ Declare `id` in the endpoint method signature to indicate it accepts an ID segme
 
 ## SimpleJsCtx
 
-The context object passed to every endpoint method and handler.
+The context object passed to every endpoint method and handler. Accepts an optional generic type `T` for `customData`.
 
 | Property | Type | Description |
 |---|---|---|
@@ -165,7 +169,12 @@ The context object passed to every endpoint method and handler.
 | `body` | `object` | Parsed request body |
 | `query` | `object` | Parsed query string |
 | `method` | `HttpMethod` | HTTP method of the request (`"get"`, `"post"`, etc.) |
-| `customData` | `any` | Data attached by plugins/middlewares via `req._custom_data` |
+| `customData` | `T` (default `any`) | Data attached by plugins/middlewares via `req._custom_data` |
+
+```ts
+// Typed customData
+const cookies = (ctx as SimpleJsCtx<{ cookies: Record<string, string> }>).customData.cookies;
+```
 
 ## SimpleJsEndpoint
 

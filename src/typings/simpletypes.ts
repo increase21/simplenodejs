@@ -45,13 +45,13 @@ export interface SimpleJsHttpsServer extends https.Server {
   registerPlugin: (plugin: Plugin) => Promise<any> | void;
 }
 
-export interface SimpleJsCtx {
+export interface SimpleJsCtx<T = any> {
   body: ObjectPayload;
   res: ResponseObject;
   req: RequestObject;
   query: ObjectPayload;
   method: HttpMethod;
-  customData: any;
+  customData: T;
 }
 
 export interface SimpleJsEndpointDescriptor {
