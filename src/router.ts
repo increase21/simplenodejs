@@ -1,7 +1,7 @@
 // router.ts
-import { RequestObject, ResponseObject } from "./typings/general";
-import { SimpleJsControllerMeta } from "./typings/simpletypes";
-import { loadControllers, throwHttpError } from "./utils/helpers";
+import { HttpMethod, RequestObject, ResponseObject } from "./typings/general";
+import { SimpleJsControllerMeta, SimpleJsCtx } from "./typings/simpletypes";
+import { loadControllers, composeMiddleware, throwHttpError } from "./utils/helpers";
 let controllers = new Map<string, SimpleJsControllerMeta>();
 
 const UNSAFE_METHODS = new Set([
@@ -17,15 +17,16 @@ export async function route(req: RequestObject, res: ResponseObject) {
   let controllerPath = (parts.length > 2 ? "/" + parts.slice(0, 2).join("/") : `/${parts.join("/")}`).toLowerCase().replace(/\-{1}\w{1}/g, match => match.replace("-", "").toUpperCase());
   let methodName = parts.length > 2 ? parts[2] : "index";
   let id = methodName !== "index" ? parts.slice(3) : []
-  const httpMethod = (req.method || "").toLowerCase()
+  const httpMethod = (req.method || "").toLowerCase() as HttpMethod
   const meta = controllers.get(controllerPath);
 
   if (!meta || !meta.name || !meta.Controller) return throwHttpError(404, "The requested resource does not exist")
 
-  const ctx = {
+  const ctx: SimpleJsCtx = {
     req, res,
     body: req.body,
     query: req.query,
+    method: httpMethod,
     customData: req._custom_data,
   }
 
@@ -57,6 +58,9 @@ export async function route(req: RequestObject, res: ResponseObject) {
     return throwHttpError(404, "Resource not found")
   }
 
+  //also add the context to the controller instance so that it can be accessed in the methods without passing it as a parameter
+  controller.ctx = ctx;
+
   const descriptors = await controller[methodName](ctx, ...id)
   // If the controller method has already sent a response, do not proceed
   if (res.writableEnded) return
@@ -72,6 +76,13 @@ export async function route(req: RequestObject, res: ResponseObject) {
   // Id validation
   if (id.length && !descriptor.id) return throwHttpError(404, "Resource not found")
   if (descriptor.id === "required" && !id.length) return throwHttpError(404, "Resource not found")
+
+  // Run endpoint-level middlewares before the handler
+  if (descriptor.middleware?.length) {
+    await composeMiddleware(descriptor.middleware)(req, res);
+  }
+  // If the handler has already sent a response, do not proceed
+  if (res.writableEnded) return;
 
   // bind to controller so `this` works in regular methods too
   await descriptor.handler.bind(controller)(ctx, ...id)

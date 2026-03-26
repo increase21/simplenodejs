@@ -97,30 +97,31 @@ Controllers are auto-loaded from `controllersDir` at startup. The file path maps
 
 ```
 controllers/
-  users/
-    auth.ts           → /users/auth
-    profile.ts        → /users/profile
   drivers/
-    vehicles.ts       → /drivers/vehicles
-    accountProfiles    → /drivers/account-profiles
+      auths.ts        → /users/auths
+
+  customers/
+      auths.ts       → /customers/auths
+      accounts      → /customers/accounts
 ```
 
-Controllers are plain classes — no base class required. Each method represents an endpoint and returns an array of `SimpleJsEndpointDescriptor` objects that declare which HTTP methods are supported and which handler to call.
+Controllers are plain classes — no base class required. Each method represents an endpoint and returns a `SimpleJsEndpoint` (an array of `SimpleJsEndpointDescriptor` objects) that declares which HTTP methods are supported and which handler to call.
 
 ```ts
 // controllers/drivers/auths.ts
-import { SimpleJsCtx, SimpleJsEndpointDescriptor } from "@increase21/simplenodejs";
+import { SimpleJsCtx, SimpleJsEndpoint } from "@increase21/simplenodejs";
 
 export default class AuthController {
 
-  async login(_ctx: SimpleJsCtx): Promise<SimpleJsEndpointDescriptor[]> {
-    return [
-      { method: "get",    handler: getLogin, middleware:LoginGetMiddleware },
-      { method: "post",   handler: postLogin, middleware:LoginPostMiddleware },
-    ];
+  // running single method without SimpleJsEndpoint
+  async login(): Promise<void> {
+    if(this.ctx.method !=="post") return this.ctx.status(405).json({error:"Method Not Allowed"})
+    //rest of the code to execute below
+    //....
   }
 
-  async account(_ctx: SimpleJsCtx, id: string): Promise<SimpleJsEndpointDescriptor[]> {
+  // running multiple methods, it must be returned as SimpleJsEndpoint 
+  async vehicleList(id: string): Promise<SimpleJsEndpoint> {
     return [
       { method: "get",    id: "optional",  handler: getAccount },
       { method: "put",    id: "required",  handler: updateAccount },
@@ -145,15 +146,10 @@ Controller methods use **camelCase** and are exposed as **kebab-case** URLs.
 Declare `id` in the endpoint method signature to indicate it accepts an ID segment. Use the descriptor's `id` field to enforce whether it is required or optional at the routing level.
 
 ```ts
-// GET  /drivers/auths/account        → id is optional
-// GET  /drivers/auths/account/123    → id = "123"
-// PUT  /drivers/auths/account/123    → required, 404 if missing
-async account(_ctx: SimpleJsCtx, id?: string): Promise<SimpleJsEndpointDescriptor[]> {
-  return [
-    { method: "get", id: "optional", handler: getAccount },
-    { method: "put", id: "required", handler: updateAccount },
-  ];
-}
+// GET  /drivers/auths/vehicle-list         → id is optional
+// GET  /drivers/auths/vehicle-list/123     → id = "123"
+// PUT  /drivers/auths/vehicle-list/123     → required, 404 if missing
+// DELETE  /drivers/auths/vehicle-list/123  → required, 404 if missing
 ```
 
 ---
@@ -168,18 +164,23 @@ The context object passed to every endpoint method and handler.
 | `res` | `ResponseObject` | Raw response object |
 | `body` | `object` | Parsed request body |
 | `query` | `object` | Parsed query string |
+| `method` | `HttpMethod` | HTTP method of the request (`"get"`, `"post"`, etc.) |
 | `customData` | `any` | Data attached by plugins/middlewares via `req._custom_data` |
+
+## SimpleJsEndpoint
+
+`SimpleJsEndpoint` is the return type for controller endpoint methods. It is equivalent to `SimpleJsEndpointDescriptor[]`.
 
 ## SimpleJsEndpointDescriptor
 
-Returned by endpoint methods to declare HTTP method handlers.
+Each object in the `SimpleJsEndpoint` array describes one HTTP verb handler.
 
 | Property | Type | Required | Description |
 |---|---|---|---|
 | `method` | `HttpMethod` | ✅ | HTTP verb: `"get"`, `"post"`, `"put"`, `"patch"`, `"delete"` |
 | `handler` | `(ctx, id?) => any` | ✅ | Method reference to call for this HTTP verb |
 | `id` | `"required" \| "optional"` | ❌ | ID routing rule. Omit if the endpoint never uses an ID |
-| `middleware` | `(req, res, next)` | ❌ | A function to execute before the handler is called |
+| `middleware` | `Middleware[]` | ❌ | Array of middlewares to run before the handler |
 
 ---
 
@@ -189,9 +190,6 @@ Extends Node's `IncomingMessage` with additional properties.
 
 | Property | Type | Description |
 |---|---|---|
-| `req.url` | `string` | Full request URL |
-| `req.method` | `string` | HTTP method |
-| `req.headers` | `object` | Request headers |
 | `req.query` | `object` | Parsed query string parameters |
 | `req.body` | `any` | Parsed request body (set by `SetBodyParser`) |
 | `req.id` | `string` | Auto-generated UUID for the request (also sent as `X-Request-Id` header) |

@@ -1,7 +1,7 @@
 import http, { IncomingMessage, ServerResponse } from "http";
 export type HttpMethod = "get" | "post" | "put" | "patch" | "delete";
 export type ObjectPayload = { [key: string]: any }
-export type RequestObject = IncomingMessage & {
+export interface RequestObject extends IncomingMessage {
   body?: any;
   query?: any;
   id?: string;
@@ -9,7 +9,7 @@ export type RequestObject = IncomingMessage & {
   _custom_data?: ObjectPayload;
 }
 
-export type ResponseObject = ServerResponse & {
+export interface ResponseObject extends ServerResponse {
   status: (value: number) => ResponseObject;
   json: (value: object) => void;
   text: (value?: string) => void;

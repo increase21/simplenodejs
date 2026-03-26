@@ -16,6 +16,6 @@ export {
 export * from "./utils/simplePlugins"
 export type { RequestObject, ResponseObject } from "./typings/general";
 export type {
-  SimpleJsCtx, SimpleJsEndpointDescriptor, SimpleJsHttpsServer,
+  SimpleJsCtx, SimpleJsEndpoint, SimpleJsHttpsServer,
   Middleware as SimpleJsMiddleware, ErrorMiddleware as SimpleJsErrorMiddleware
 } from "./typings/simpletypes";

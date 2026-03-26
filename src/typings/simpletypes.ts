@@ -20,7 +20,6 @@ export interface SimpleJsControllerMeta {
   Controller: any;
 }
 
-
 export type Middleware = (
   req: RequestObject,
   res: ResponseObject,
@@ -51,11 +50,15 @@ export interface SimpleJsCtx {
   res: ResponseObject;
   req: RequestObject;
   query: ObjectPayload;
+  method: HttpMethod;
   customData: any;
 }
 
 export interface SimpleJsEndpointDescriptor {
   method: HttpMethod;
   id?: "required" | "optional";
+  middleware?: Middleware[];
   handler: (ctx: SimpleJsCtx, id?: string) => any;
 }
+
+export type SimpleJsEndpoint = SimpleJsEndpointDescriptor[];
