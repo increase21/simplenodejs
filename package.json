@@ -1,8 +1,12 @@
 {
   "name": "@increase21/simplenodejs",
-  "version": "2.0.1",
+  "version": "2.0.2",
+  "homepage": "https://github.com/increase21/simplenodejs#readme",
+  "funding": {
+    "type": "github",
+    "url": "https://github.com/sponsors/increase21"
+  },
   "description": "Lightweight Node.js HTTP framework with middlewares and plugins",
-  "dev": "dist/index.js",
   "bugs": "https://github.com/increase21/simplenodejs/issues",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,13 +20,12 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/increase21/simplenodejs.git",
-    "directory": ""
   },
   "files": [
     "dist"
   ],
   "scripts": {
-    "build": "tsc && npm publish",
+    "build": "tsc && npm publish --provenance",
     "test": "node dist/test.js",
     "dev": "nodemon server.ts"
   },
@@ -34,10 +37,11 @@
   ],
   "author": "Increase Nkanta",
   "license": "MIT",
-  "dependencies": {
+  "devDependencies": {
+    "typescript": "^5.3.0",
     "@types/node": "^20.0.0"
   },
-  "devDependencies": {
-    "typescript": "^5.3.0"
+  "engines": {
+    "node": ">=20"
   }
 }
