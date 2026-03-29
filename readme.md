@@ -98,7 +98,7 @@ Controllers are auto-loaded from `controllersDir` at startup. The file path maps
 ```
 controllers/
   drivers/
-      auths.ts        → /users/auths
+      auths.ts        → /drivers/auths
 
   customers/
       auths.ts       → /customers/auths
@@ -119,7 +119,7 @@ export default class AuthController {
   // single HTTP method — access this.ctx directly, no descriptor needed
   async login(): Promise<void> {
     if (this.ctx.method !== "post") return this.ctx.res.status(405).json({ error: "Method Not Allowed" });
-    // handler logic...
+    // other logic...
   }
 
   // multiple HTTP methods — return a SimpleJsEndpoint array
