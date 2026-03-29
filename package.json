@@ -25,7 +25,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc && npm publish --provenance",
+    "build": "tsc",
     "test": "node dist/test.js",
     "dev": "nodemon server.ts"
   },
