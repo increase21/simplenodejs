@@ -23,10 +23,9 @@ jobs:
         node-version: 20
         registry-url: https://registry.npmjs.org
 
-    # Remove the _authToken that setup-node injects — lets npm use OIDC instead
-    - run: npm config delete //registry.npmjs.org/:_authToken --location project
-
     - run: npm ci
     - run: npm run build
 
     - run: npm publish --provenance --access public
+      env:
+        NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
