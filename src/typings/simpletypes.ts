@@ -61,4 +61,4 @@ export interface SimpleJsEndpointDescriptor {
   handler: (ctx: SimpleJsCtx, id?: string) => any;
 }
 
-export type SimpleJsEndpoint = SimpleJsEndpointDescriptor[];
+export type SimpleJsEndpoint = SimpleJsEndpointDescriptor[] | void;
