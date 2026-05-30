@@ -4,7 +4,7 @@ import crypto from "node:crypto";
 import { route, setControllersDir } from "./router";
 import { RequestObject, ResponseObject } from "./typings/general";
 import { ErrorMiddleware, Middleware, Plugin, SimpleJsHttpsServer, SimpleJsServer } from "./typings/simpletypes";
-import { composeMiddleware, runErrorMiddlewares } from "./utils/helpers";
+import { composeMiddleware, runErrorMiddlewares, throwHttpError } from "./utils/helpers";
 
 type ServerOptions = {
   controllersDir?: string;
@@ -25,6 +25,11 @@ const extension = (req: RequestObject, res: ResponseObject): void => {
     res.setHeader('Content-Type', 'text/plain');
     res.end(param);
   };
+  //if the URL string contains ../../ or ../.., then throw an error
+  if (req.url && (req.url.includes("../") || req.url.includes("..\\"))) {
+    return throwHttpError(404, "The requested resource does not exist");
+  }
+
   const url = new URL(req.url!, "http://localhost");
   req.query = url.search ? Object.fromEntries(url.searchParams.entries()) : {};
   req._end_point_path = url.pathname.replace(/^\/+|\/+$/g, "").split("/");

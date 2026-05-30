@@ -13,13 +13,18 @@ export function setControllersDir(dir: string) {
 }
 
 export async function route(req: RequestObject, res: ResponseObject) {
-  let parts = req._end_point_path || []
-  let controllerPath = (parts.length > 2 ? "/" + parts.slice(0, 2).join("/") : `/${parts.join("/")}`).toLowerCase().replace(/\-{1}\w{1}/g, match => match.replace("-", "").toUpperCase());
-  let methodName = parts.length > 2 ? parts[2] : "index";
-  let id = methodName !== "index" ? parts.slice(3) : []
+  let parts = (req._end_point_path || []).map(part => part.toLowerCase().replace(/\-{1}\w{1}/g, match => match.replace("-", "").toUpperCase()))
+  let parthLen = parts.length
+  if (parthLen < 2) return throwHttpError(404, "The requested resource does not exist")
+  let controllerPath1 = `/${parts.join("/")}`
+  let controllerPath2 = parthLen > 2 ? controllerPath1.split("/").slice(0, -1).join("/") : ""
+  let controllerPath3 = parthLen > 3 ? controllerPath1.split("/").slice(0, -2).join("/") : ""
   const httpMethod = (req.method || "").toLowerCase() as HttpMethod
-  const meta = controllers.get(controllerPath);
+  const meta1 = controllers.get(controllerPath1)
+  const meta2 = controllers.get(controllerPath2)
+  const meta3 = controllers.get(controllerPath3)
 
+  const meta = meta1 || meta2 || meta3
   if (!meta || !meta.name || !meta.Controller) return throwHttpError(404, "The requested resource does not exist")
 
   const ctx: SimpleJsCtx = {
@@ -36,23 +41,25 @@ export async function route(req: RequestObject, res: ResponseObject) {
   //if request has ended, do not proceed
   if (res.writableEnded) return
 
-  //sanitize method name, convert kebab-case to camelCase
-  methodName = (methodName || "").replace(/\-{1}\w{1}/g, match => match.replace("-", "").toUpperCase());
+  // Get method name
+  let methodName = parthLen > 2 ? parts[parthLen - 1] in ControllerClass.prototype ? parts[parthLen - 1] :
+    parts[parthLen - 2] in ControllerClass.prototype ? parts[parthLen - 2] : null : null
+
+  //if method name is null, set it to index
+  methodName = methodName || "index"
 
   // Block Object.prototype methods and __private convention
-  if (methodName.startsWith("__") || UNSAFE_METHODS.has(methodName)) {
-    return throwHttpError(404, "The requested resource does not exist");
-  }
+  if (methodName.startsWith("__") || UNSAFE_METHODS.has(methodName)) return throwHttpError(404, "The requested resource does not exist");
 
   // Fallback to index if method not found (treat path segment as id)
-  if (typeof controller[methodName] !== "function") {
-    if (typeof controller["index"] === "function" && parts.length === 3) {
-      id = parts.slice(2);
-      methodName = "index";
-    } else {
-      return throwHttpError(404, "The requested resource does not exist");
-    }
-  }
+  if (typeof controller[methodName] !== "function") return throwHttpError(404, "The requested resource does not exist");
+
+  //get the id from the url
+  let id = meta1 ? [] : meta2 ? parts.slice(controllerPath2.split("/").length - 1) : parts.slice(controllerPath3.split("/").length - 1)
+
+  //remove the method name from the id
+  id = id[0] === methodName ? id.slice(1) : id
+
   //checking if the method does not require id but id is provided, if so, return 404
   if (id.length && !controller[methodName].length) return throwHttpError(404, "Resource not found")
 
