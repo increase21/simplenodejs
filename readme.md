@@ -35,7 +35,6 @@ npm install @increase21/simplenodejs
 ```ts
 import {
   CreateSimpleJsHttpServer,
-  SetBodyParser,
   SetHelmet,
   SetCORS,
   SetRateLimiter,
@@ -43,11 +42,11 @@ import {
 
 const app = CreateSimpleJsHttpServer({
   controllersDir: process.cwd() + "/controllers",
+  bodyLimit: "2mb",
 });
 
 app.use(SetCORS());
 app.use(SetHelmet());
-app.use(SetBodyParser({ limit: "2mb" }));
 app.use(SetRateLimiter({ windowMs: 60_000, max: 100 }));
 
 app.listen(3000, () => {
@@ -64,6 +63,7 @@ Creates and returns an HTTP app instance.
 | Param | Type | Required | Description |
 |------|------|----------|-------------|
 | `controllersDir` | `string` | ✅ | Path to your controllers directory |
+| `bodyLimit` | `string \| number` | ❌ | Global max body size (e.g. `"2mb"`, `"500kb"`, or bytes). Default: `"1mb"` |
 
 ## CreateSimpleJsHttpsServer(options)
 
@@ -73,6 +73,7 @@ Creates and returns an HTTPS app instance.
 |------|------|----------|-------------|
 | `controllersDir` | `string` | ✅ | Path to your controllers directory |
 | `tlsOpts` | `https.ServerOptions` | ✅ | TLS options (key, cert, etc.) |
+| `bodyLimit` | `string \| number` | ❌ | Global max body size (e.g. `"2mb"`, `"500kb"`, or bytes). Default: `"1mb"` |
 
 ```ts
 import fs from "fs";
@@ -170,11 +171,36 @@ The context object passed to every endpoint method and handler. Accepts an optio
 | `query` | `object` | Parsed query string |
 | `method` | `HttpMethod` | HTTP method of the request (`"get"`, `"post"`, etc.) |
 | `customData` | `T` (default `any`) | Data attached by plugins/middlewares via `req._custom_data` |
+| `readBody(limit?)` | `(limit?: string \| number) => Promise<void>` | Manually parse the request body. Call this inside void-returning controller methods that handle the response directly. Parsed result is available on `ctx.body` after awaiting. No-op if the body was already parsed. |
 
 ```ts
 // Typed customData
 const cookies = (ctx as SimpleJsCtx<{ cookies: Record<string, string> }>).customData.cookies;
 ```
+
+**`readBody` — void-returning controller methods**
+
+For controller methods that handle the response directly (no `SimpleJsEndpoint` return), call `ctx.readBody()` before accessing `ctx.body`:
+
+```ts
+export default class AuthController {
+  ctx: SimpleJsCtx;
+
+  async login() {
+    await this.ctx.readBody();
+    const { email, password } = this.ctx.body;
+    // handle response directly...
+  }
+}
+```
+
+A per-call size limit can be passed to override the global `bodyLimit`:
+
+```ts
+await this.ctx.readBody("500kb");
+```
+
+`readBody` is a no-op if the body was already parsed, so calling it more than once is safe.
 
 ## SimpleJsEndpoint
 
@@ -190,6 +216,8 @@ Each object in the `SimpleJsEndpoint` array describes one HTTP verb handler.
 | `handler` | `(ctx, id?) => any` | ✅ | Method reference to call for this HTTP verb |
 | `id` | `"required" \| "optional"` | ❌ | ID routing rule. Omit if the endpoint never uses an ID |
 | `middleware` | `Middleware[]` | ❌ | Array of middlewares to run before the handler |
+| `bodyLimit` | `string \| number` | ❌ | Per-endpoint max body size override (e.g. `"50mb"`). Overrides the global `bodyLimit` |
+| `ignoreStream` | `boolean` | ❌ | Set to `true` to skip body parsing entirely and receive the raw stream in the handler |
 
 ---
 
@@ -200,7 +228,7 @@ Extends Node's `IncomingMessage` with additional properties.
 | Property | Type | Description |
 |---|---|---|
 | `req.query` | `object` | Parsed query string parameters |
-| `req.body` | `any` | Parsed request body (set by `SetBodyParser`) |
+| `req.body` | `any` | Parsed request body (automatically populated when a body is present) |
 | `req.id` | `string` | Auto-generated UUID for the request (also sent as `X-Request-Id` header) |
 | `req._custom_data` | `object` | Shared data bag written by plugins (payload, cookies, etc.) |
 
@@ -273,41 +301,53 @@ app.registerPlugin(app => SimpleJsSecurityPlugin(app, opt));
 
 # Built-in Middlewares
 
-## SetBodyParser(options)
+## Body Parsing
 
-Parses the request body. Must be registered before controllers access `ctx.body`.
+Body parsing is **automatic** — no middleware registration required. When a request carries a body (`Content-Type` or `Content-Length` header), the framework reads and parses it before your handler runs. The result is available as `ctx.body`.
 
-| Param | Type | Description |
-|---|---|---|
-| `limit` | `string \| number` | Max body size (e.g. `"2mb"`, `"500kb"`, or bytes as number). Default: `"1mb"` |
-| `ignoreStream` | `{url:string, method:string, type: exact or prefex}[] \| (req) => boolean` | Skip stream reading and pass the raw stream to the handler for matching requests. Accepts a list of path prefixes and their http menthods or a predicate function. The `type` field determines whether the URL should be matched exactly (`exact`) or as a prefix (`prefix`) |
+**JSON** bodies (`application/json`) are parsed to an object. All other content types are left as a raw string.
 
-```ts
-app.use(SetBodyParser({ limit: "2mb" }));
-```
+### Global limit
 
-**`ignoreStream` — file upload / raw stream endpoints**
-
-For context where you need direct stream access (e.g. passing the request to a library like `formidable`), use `ignoreStream`:
+Set the max payload size for all endpoints via the server options:
 
 ```ts
-// Path-prefix list — skip body parsing for any URL under /upload
-app.use(SetBodyParser({ 
-  limit: "10mb", 
-  ignoreStream: [
-    {url:"/files/", method:"post", type:"prefix"}, 
-    {url:"/files/profile-picture", method:"post", type:"exact"}
-  ]
-  }));
-
-// Predicate function — full control over which requests are skipped
-app.use(SetBodyParser({
-  limit: "10mb",
-  ignoreStream: (req) => req.url.startsWith("/upload"),
-}));
+const app = CreateSimpleJsHttpServer({
+  controllersDir: process.cwd() + "/controllers",
+  bodyLimit: "5mb",   // default: "1mb"
+});
 ```
 
-When a request is ignored, `next()` is called immediately with the stream untouched. Your handler is then responsible for consuming it:
+Accepts a string (`"500kb"`, `"10mb"`) or a number of bytes. Requests exceeding the limit are rejected immediately with `413 Payload Too Large`.
+
+### Per-endpoint limit
+
+Override the global limit for a specific endpoint using the `limit` field on the descriptor:
+
+```ts
+return [
+  { method: "post", bodyLimit: "50mb", handler: uploadHandler },
+  { method: "get",  handler: listHandler },
+];
+```
+
+The per-endpoint `limit` takes precedence over the global `bodyLimit`.
+
+### Raw stream endpoints (`ignoreStream`)
+
+Set `ignoreStream: true` on a descriptor to skip body parsing entirely. The raw Node.js stream is passed directly to your handler — useful when piping to a library like `formidable` or `busboy`:
+
+```ts
+return [
+  { method: "post", ignoreStream: true, handler: uploadHandler },
+];
+```
+
+When `ignoreStream` is `true`, `ctx.body` is `undefined` and your handler is responsible for consuming the stream.
+
+### SetBodyParser
+
+> **Deprecated** — `SetBodyParser` will be removed in a future release. Use `bodyLimit` on the server options and `bodyLimit` / `ignoreStream` on the endpoint descriptor instead.
 
 ---
 
@@ -580,7 +620,7 @@ app.registerPlugin(app => SimpleJsMaintenanceModePlugin(app, {
 - Use `SetRateLimiter` on all public endpoints
 - Enable `credentials: true` in `SetCORS` only with a specific `origin` — never with a wildcard
 - Only set `trustProxy: true` on `SetRateLimiter` or `SimpleJsIPWhitelistPlugin` when running behind a trusted reverse proxy (Nginx, etc.)
-- Register `SetBodyParser` with a reasonable `limit` to prevent oversized payloads
+- Set a reasonable `bodyLimit` on server creation to prevent oversized payloads; override per endpoint with the descriptor's `limit` field
 - Use `app.useError` to handle errors uniformly — unhandled errors return `"Service unavailable"` with no internal details exposed
 - Add `HttpOnly; Secure; SameSite=Strict` attributes when setting cookies via `Set-Cookie`
 - On HTTPS deployments, register `SetHSTS()` or include it in `SetHelmet()`

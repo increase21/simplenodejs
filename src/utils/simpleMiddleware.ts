@@ -196,7 +196,7 @@ export function SetRateLimiter(opts: SimpleJSRateLimitType) {
 }
 
 // ─── Body Parser ──────────────────────────────────────────────────────────────
-function SetBodyLimit(limit: string | number = "1mb") {
+export function SetBodyLimit(limit: string | number = "1mb") {
   if (typeof limit === "number") return limit;
   const match = /^(\d+)(kb|mb)?$/i.exec(limit);
   if (!match) return 1024 * 1024;
@@ -207,6 +207,11 @@ function SetBodyLimit(limit: string | number = "1mb") {
   return n;
 }
 
+/**
+ * @deprecated Body parsing is now handled automatically by the framework.
+ * Use `bodyLimit` on the server options for a global limit and `bodyLimit` / `ignoreStream`
+ * on the endpoint descriptor for per-endpoint control. `SetBodyParser` will be removed in a future release.
+ */
 export function SetBodyParser(opts: SimpleJSBodyParseType) {
   const maxSize = SetBodyLimit(opts.limit);
 
