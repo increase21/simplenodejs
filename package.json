@@ -1,6 +1,6 @@
 {
   "name": "@increase21/simplenodejs",
-  "version": "2.0.5",
+  "version": "2.0.6",
   "homepage": "https://github.com/increase21/simplenodejs#readme",
   "funding": {
     "type": "github",
@@ -33,12 +33,14 @@
     "http",
     "framework",
     "node",
-    "typescript"
+    "typescript",
+    "node framework",
+    "API framework"
   ],
   "author": "Increase Nkanta",
   "license": "MIT",
   "devDependencies": {
-    "@types/node": "^20.19.41",
+    "@types/node": "^20.19.43",
     "typescript": "^5.3.0"
   },
   "engines": {

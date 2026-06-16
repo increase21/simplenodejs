@@ -1,17 +1,19 @@
 import http, { IncomingMessage, ServerResponse } from "http";
 import https from "node:https";
 import crypto from "node:crypto";
-import { route, setControllersDir } from "./router";
+import { route, setControllersDir, setBodyConfig } from "./router";
 import { RequestObject, ResponseObject } from "./typings/general";
 import { ErrorMiddleware, Middleware, Plugin, SimpleJsHttpsServer, SimpleJsServer } from "./typings/simpletypes";
 import { composeMiddleware, runErrorMiddlewares, throwHttpError } from "./utils/helpers";
 
 type ServerOptions = {
   controllersDir?: string;
-  tlsOpts?: https.ServerOptions,
+  tlsOpts?: https.ServerOptions;
+  bodyLimit?: string | number;
 };
 
 const extension = (req: RequestObject, res: ResponseObject): void => {
+
   res.status = (code: number): ResponseObject => {
     if (typeof code !== "number") throw new Error("Status code expected to be number but got " + typeof code);
     res.statusCode = code ?? 200;
@@ -71,7 +73,8 @@ function attachServerMethods(
 export const CreateSimpleJsHttpServer = (opts?: ServerOptions): SimpleJsServer => {
   const middlewares: Middleware[] = [];
   const errorMiddlewares: ErrorMiddleware[] = [];
-  if (opts && opts.controllersDir) setControllersDir(opts.controllersDir);
+  if (opts?.controllersDir) setControllersDir(opts.controllersDir);
+  if (opts?.bodyLimit !== undefined) setBodyConfig({ limit: opts.bodyLimit });
   const server = http.createServer(buildRequestHandler(middlewares, errorMiddlewares)) as SimpleJsServer;
   attachServerMethods(server, middlewares, errorMiddlewares, opts);
   return server;
@@ -82,6 +85,7 @@ export const CreateSimpleJsHttpsServer = (opts?: ServerOptions): SimpleJsHttpsSe
   const errorMiddlewares: ErrorMiddleware[] = [];
   if (!opts?.tlsOpts) throw new Error("CreateSimpleJsHttpsServer requires opts.tlsOpts");
   if (opts.controllersDir) setControllersDir(opts.controllersDir);
+  if (opts.bodyLimit !== undefined) setBodyConfig({ limit: opts.bodyLimit });
   const server = https.createServer(opts.tlsOpts, buildRequestHandler(middlewares, errorMiddlewares)) as SimpleJsHttpsServer;
   attachServerMethods(server, middlewares, errorMiddlewares, opts);
   return server;

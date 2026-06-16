@@ -52,12 +52,15 @@ export interface SimpleJsCtx<T = any> {
   query: ObjectPayload;
   method: HttpMethod;
   customData: T;
+  readBody: (limit?: string | number) => Promise<void>;
 }
 
 export interface SimpleJsEndpointDescriptor {
   method: HttpMethod;
   id?: "required" | "optional";
   middleware?: Middleware[];
+  ignoreStream?: boolean;
+  bodyLimit?: string | number;
   handler: (ctx: SimpleJsCtx, id?: string) => any;
 }
 
