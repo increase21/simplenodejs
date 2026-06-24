@@ -1,5 +1,5 @@
-import { HttpMethod, RequestObject, ResponseObject } from "../typings/general";
-import { SimpleJSBodyParseType, SimpleJSRateLimitType } from "../typings/simpletypes";
+import { RequestObject, ResponseObject } from "../typings/general";
+import { SimpleJSRateLimitType } from "../typings/simpletypes";
 import { throwHttpError } from "./helpers";
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
@@ -153,16 +153,18 @@ const RATE_LIMIT_MAX_STORE = 100_000;
 
 export function SetRateLimiter(opts: SimpleJSRateLimitType) {
   const store = new Map<string, { count: number; ts: number }>();
-  const timer = setInterval(() => {
+  setInterval(() => {
     const now = Date.now();
     for (const [k, v] of store) {
       if (now - v.ts > opts.windowMs) store.delete(k);
     }
-  }, opts.windowMs);
-
-  timer.unref();
+  }, opts.windowMs)?.unref();
 
   return async (req: RequestObject, res: ResponseObject, next: () => Promise<any> | void) => {
+    //if there's urlMatch and the request url doesn't match, skip
+    const urlMatch = opts.urlMatch ? opts.urlMatch.find((u) => u === req.url) : "";
+    if (opts.urlMatch && !urlMatch) return next();
+
     const xff = String(req.headers["x-forwarded-for"] || "");
     const ip = opts.trustProxy
       ? (Array.isArray(req.headers["x-forwarded-for"])
@@ -170,7 +172,8 @@ export function SetRateLimiter(opts: SimpleJSRateLimitType) {
         : (xff.indexOf(",") >= 0 ? xff.slice(0, xff.indexOf(",")) : xff).trim()) || req.socket.remoteAddress || "unknown"
       : req.socket.remoteAddress || "unknown";
 
-    const key = String(opts.keyGenerator?.(req) || ip || "unknown");
+    const finalIp = String(opts.keyGenerator?.(req) || ip || "unknown");
+    const key = `${finalIp}:${urlMatch}`;
     const now = Date.now();
 
     const entry = store.get(key as string) || { count: 0, ts: now };
@@ -180,6 +183,7 @@ export function SetRateLimiter(opts: SimpleJSRateLimitType) {
     }
 
     entry.count++;
+
     if (!store.has(key) && store.size >= RATE_LIMIT_MAX_STORE) {
       store.delete(store.keys().next().value!); // evict oldest entry
     }
@@ -187,7 +191,7 @@ export function SetRateLimiter(opts: SimpleJSRateLimitType) {
 
     if (entry.count > opts.max) {
       res.setHeader("Retry-After", Math.ceil(opts.windowMs / 1000));
-      if (!res.writableEnded) throwHttpError(429, "Too Many Requests");
+      if (!res.writableEnded) throwHttpError(429, "Too Many Requests. Please try again later.");
       return;
     }
 
@@ -205,64 +209,4 @@ export function SetBodyLimit(limit: string | number = "1mb") {
   if (unit === "kb") return n * 1024;
   if (unit === "mb") return n * 1024 * 1024;
   return n;
-}
-
-/**
- * @deprecated Body parsing is now handled automatically by the framework.
- * Use `bodyLimit` on the server options for a global limit and `bodyLimit` / `ignoreStream`
- * on the endpoint descriptor for per-endpoint control. `SetBodyParser` will be removed in a future release.
- */
-export function SetBodyParser(opts: SimpleJSBodyParseType) {
-  const maxSize = SetBodyLimit(opts.limit);
-
-  return (req: RequestObject, res: ResponseObject, next: () => Promise<any> | void) => new Promise<void>((resolve, reject) => {
-    const contentType = req.headers["content-type"] || "";
-
-    const shouldIgnoreStream = (() => {
-      if (!opts.ignoreStream) return false;
-      if (typeof opts.ignoreStream === "function") return opts.ignoreStream(req);
-      const url = req.url || "";
-      const method = ((req.method || "").toLowerCase() as HttpMethod);
-      return opts.ignoreStream.some(p => (p.type === "exact" ? url === p.url : url.startsWith(p.url)) && method === p.method);
-    })();
-
-    // For simplicity, we only parse JSON and plain text. Multipart/form-data and other types are ignored.
-    if (shouldIgnoreStream) return resolve(next());
-
-    let size = 0;
-    const chunks: Buffer[] = [];
-
-    req.on("data", chunk => {
-      size += chunk.length;
-      if (maxSize && size > maxSize) {
-        reject({ code: 413, error: "Payload Too Large" });
-        if (!res.writableEnded) res.status(413).end("Payload Too Large");
-        req.destroy();
-        req.socket.destroy();
-        return;
-      }
-      chunks.push(chunk);
-    });
-
-    req.on("end", () => {
-      if (res.writableEnded) return resolve();
-      try {
-        const body = Buffer.concat(chunks).toString();
-        if (body && contentType.includes("application/json")) {
-          req.body = JSON.parse(body);
-        } else {
-          req.body = body;
-        }
-        resolve(next());
-      } catch (e) {
-        reject({ code: 400, error: "Invalid Payload" });
-        if (!res.writableEnded) res.status(400).end("Invalid Payload");
-      }
-    });
-
-    req.on("error", () => {
-      reject({ code: 400, error: "Request stream ended" });
-      if (!res.writableEnded) res.status(400).end("Request stream ended");
-    });
-  });
 }
