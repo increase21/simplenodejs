@@ -61,7 +61,7 @@ function searchIndex(p: DocEndpoint): string {
 
 function pageHtml(p: DocEndpoint): string {
   return `
-  <article class="view doc" data-key="page:${esc(p.id)}" hidden>
+  <article class="view doc" data-key="page:${esc(p.id)}" data-group="${esc(slugOf(p.group))}" hidden>
     <a class="back" data-nav="group:${esc(slugOf(p.group))}">← ${esc(p.group)}</a>
     <span class="method method-${esc(p.method)}">${esc(p.method)}</span>
     <h2>${esc(p.title)}</h2>
@@ -129,11 +129,13 @@ export function renderDocs(model: DocModel, opts: DocsPluginOptions): string {
   const sidebarHtml = `
   <a class="navlink home-link" data-nav="home">Home</a>
   ${groups.map((g) => `
-    <div class="group" data-nav="group:${esc(g.slug)}">${esc(g.name)}</div>
-    ${Object.entries(g.sections).map(([section, ps]) => `
-      <div class="section">${esc(section)}</div>
-      ${ps.map((p) => `<a class="navlink" data-nav="page:${esc(p.id)}">${esc(p.title)}</a>`).join("")}
-    `).join("")}
+    <div class="side-group" data-group="${esc(g.slug)}" hidden>
+      <div class="group" data-nav="group:${esc(g.slug)}">${esc(g.name)}</div>
+      ${Object.entries(g.sections).map(([section, ps]) => `
+        <div class="section">${esc(section)}</div>
+        ${ps.map((p) => `<a class="navlink" data-nav="page:${esc(p.id)}">${esc(p.title)}</a>`).join("")}
+      `).join("")}
+    </div>
   `).join("")}`;
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -217,6 +219,16 @@ export function renderDocs(model: DocModel, opts: DocsPluginOptions): string {
       views.forEach(function (v) { v.hidden = v.dataset.key !== key; });
       navs.forEach(function (n) { n.classList.toggle("active", n.classList.contains("navlink") && n.dataset.nav === key); });
       document.body.classList.toggle("at-home", key === "home");
+      // sidebar shows only the active group's section
+      var activeGroup = null;
+      if (key.indexOf("group:") === 0) activeGroup = key.slice(6);
+      else if (key.indexOf("page:") === 0) {
+        var current = document.querySelector('[data-key="' + key + '"]');
+        activeGroup = current ? current.getAttribute("data-group") : null;
+      }
+      document.querySelectorAll(".side-group").forEach(function (sg) {
+        sg.hidden = activeGroup === null || sg.getAttribute("data-group") !== activeGroup;
+      });
       var main = document.querySelector("main"); if (main) main.scrollTop = 0;
     }
     navs.forEach(function (n) { n.addEventListener("click", function () { show(n.dataset.nav); }); });
