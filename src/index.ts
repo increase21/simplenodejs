@@ -11,7 +11,6 @@ export {
   SetCOOP,
   SetHelmet,
   SetRateLimiter,
-  SetBodyParser,
 } from "./utils/simpleMiddleware"
 export * from "./utils/simplePlugins"
 export type { RequestObject, ResponseObject } from "./typings/general";

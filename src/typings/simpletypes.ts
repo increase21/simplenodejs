@@ -3,18 +3,12 @@ import http from "node:http";
 import https from "node:https";
 export type Next = () => Promise<any> | void;
 export type Plugin = (app: SimpleJsServer, opts?: any) => Promise<any> | void;
-export type SimpleJSRateLimitType = { windowMs: number; max: number; trustProxy?: boolean; keyGenerator?: (req: any) => string }
-export type SimpleJSBodyParseType = {
-  limit?: string | number;
-  /**
-   * Skip stream reading (and pass the raw stream to the handler) for matching requests.
-   * Accepts a list of path prefixes or a predicate function.
-   * Multipart requests are always skipped regardless of this option.
-   * The `type` field determines whether the URL should be matched exactly (`exact`) or as a prefix (`prefix`).
-   */
-  ignoreStream?: { url: string, method: HttpMethod, type: 'exact' | 'prefix' }[] | ((req: RequestObject) => boolean);
+export type SimpleJSRateLimitType = {
+  windowMs: number; max: number;
+  trustProxy?: boolean;
+  keyGenerator?: (req: any) => string,
+  urlMatch?: string[]
 }
-
 export interface SimpleJsControllerMeta {
   name: string;
   Controller: any;
