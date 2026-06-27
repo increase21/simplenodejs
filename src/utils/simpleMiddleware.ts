@@ -161,8 +161,9 @@ export function SetRateLimiter(opts: SimpleJSRateLimitType) {
   }, opts.windowMs)?.unref();
 
   return async (req: RequestObject, res: ResponseObject, next: () => Promise<any> | void) => {
-    //if there's urlMatch and the request url doesn't match, skip
-    const urlMatch = opts.urlMatch ? opts.urlMatch.find((u) => u === req.url) : "";
+    //if there's urlMatch and the request url doesn't match a prefix, skip
+    const reqUrl = req.url || "";
+    const urlMatch = opts.urlMatch ? opts.urlMatch.find((u) => reqUrl.startsWith(u)) : "";
     if (opts.urlMatch && !urlMatch) return next();
 
     const xff = String(req.headers["x-forwarded-for"] || "");
