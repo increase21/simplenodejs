@@ -1,26 +1,18 @@
 import crypto from "node:crypto";
-import net from "node:net";
-import { RequestObject, ResponseObject } from "../typings/general";
+import { SimpleJsRequestObject, SimpleJsResponseObject } from "../typings/general";
 import { SimpleJSRateLimitType, SimpleJsServer } from "../typings/simpletypes";
-import { throwHttpError } from "./helpers";
-import { SetCORS, SetHelmet, SetRateLimiter } from "./simpleMiddleware";
-
-// ─── IP normalization ─────────────────────────────────────────────────────────
-// Converts IPv4-mapped IPv6 addresses (e.g. ::ffff:127.0.0.1) to plain IPv4.
-function normalizeIP(raw: string): string {
-  const stripped = raw.replace(/^::ffff:/i, "");
-  return net.isIPv4(stripped) ? stripped : raw;
-}
+import { clientIp, httpError, throwHttpError } from "./helpers";
+import { SimpleJsSetCORS, SimpleJsSetHelmet, SimpleJsSetRateLimiter } from "./simpleMiddleware";
 
 // ─── Security Plugin ──────────────────────────────────────────────────────────
 export function SimpleJsSecurityPlugin(app: SimpleJsServer, opts: {
-  cors?: Parameters<typeof SetCORS>[0];
-  helmet?: true | Parameters<typeof SetHelmet>[0];
+  cors?: Parameters<typeof SimpleJsSetCORS>[0];
+  helmet?: true | Parameters<typeof SimpleJsSetHelmet>[0];
   rateLimit?: SimpleJSRateLimitType;
 }) {
-  if (opts.cors) app.use(SetCORS(opts.cors));
-  if (opts.helmet) app.use(SetHelmet(opts.helmet === true ? undefined : opts.helmet));
-  if (opts.rateLimit) app.use(SetRateLimiter(opts.rateLimit));
+  if (opts.cors) app.use(SimpleJsSetCORS(opts.cors));
+  if (opts.helmet) app.use(SimpleJsSetHelmet(opts.helmet === true ? undefined : opts.helmet));
+  if (opts.rateLimit) app.use(SimpleJsSetRateLimiter(opts.rateLimit));
 }
 
 // ─── IP Whitelist / Blacklist Plugin ──────────────────────────────────────────
@@ -32,21 +24,14 @@ export function SimpleJsSecurityPlugin(app: SimpleJsServer, opts: {
 export function SimpleJsIPWhitelistPlugin(app: SimpleJsServer, opts: {
   ips: string[];
   mode?: "allow" | "deny";
-  trustProxy?: boolean;
+  /** true = one trusted proxy in front of the app; a number = that many trusted proxies. */
+  trustProxy?: boolean | number;
 }) {
   const mode = opts.mode || "allow";
   const ipSet = new Set(opts.ips);
 
-  app.use(async (req: RequestObject, _res: ResponseObject, next: any) => {
-    const xff = String(req.headers["x-forwarded-for"] || "");
-    const raw = opts.trustProxy
-      ? (Array.isArray(req.headers["x-forwarded-for"])
-        ? req.headers["x-forwarded-for"][0]
-        : (xff.indexOf(",") >= 0 ? xff.slice(0, xff.indexOf(",")) : xff).trim()) || req.socket.remoteAddress || ""
-      : req.socket.remoteAddress || "";
-
-    const ip = normalizeIP(raw);
-
+  app.use(async (req: SimpleJsRequestObject, _res: SimpleJsResponseObject, next: any) => {
+    const ip = clientIp(req, opts.trustProxy);
     const inList = ipSet.has(ip);
     if (mode === "allow" && !inList) throwHttpError(403, "Access denied");
     if (mode === "deny" && inList) throwHttpError(403, "Access denied");
@@ -72,55 +57,60 @@ function parseCookieHeader(header: string): Record<string, string> {
   return result;
 }
 
+const cookieSignature = (name: string, value: string, secret: string): string =>
+  crypto.createHmac("sha256", secret).update(`${name}=${value}`).digest("base64url");
+
 /**
  * Creates a signed cookie value. Use this when setting a cookie in a response.
+ * The signature covers the cookie name, so the value is only valid under that name.
  * The client sends it back as-is; SimpleJsCookiePlugin will verify and strip the signature.
  */
-export function SignCookie(value: string, secret: string): string {
-  const sig = crypto.createHmac("sha256", secret).update(value).digest("base64url");
-  return `s:${value}.${sig}`;
+export function SimpleJsSignCookie(name: string, value: string, secret: string): string {
+  return `s:${value}.${cookieSignature(name, value, secret)}`;
 }
 
 /**
  * Parses the Cookie header on every request.
- * Cookies are available at `this._custom_data[dataKey]` inside controllers.
- * If a secret is provided, signed cookies (prefixed "s:") are verified and unsigned.
- * Cookies with invalid signatures are silently dropped.
+ * Plain cookies are available at `_custom_data[dataKey]` (default "cookies").
+ * If a secret is provided, signed cookies (prefixed "s:") are verified and placed only in
+ * `_custom_data[signedDataKey]` (default "signedCookies"), so a plain cookie can never stand in
+ * for a signed one. Cookies with invalid signatures are silently dropped.
  */
 export function SimpleJsCookiePlugin(app: SimpleJsServer, opts?: {
   secret?: string;
-  /** Key used to attach cookies on _custom_data. Default: "cookies" */
+  /** Key used to attach plain cookies on _custom_data. Default: "cookies" */
   dataKey?: string;
+  /** Key used to attach verified signed cookies on _custom_data. Default: "signedCookies" */
+  signedDataKey?: string;
 }) {
   const dataKey = opts?.dataKey || "cookies";
+  const signedDataKey = opts?.signedDataKey || "signedCookies";
 
-  app.use(async (req: RequestObject, _res: ResponseObject, next: any) => {
+  app.use(async (req: SimpleJsRequestObject, _res: SimpleJsResponseObject, next: any) => {
     const raw = parseCookieHeader(req.headers.cookie || "");
 
     if (opts?.secret) {
-      const verified = Object.create(null) as Record<string, string>;
+      const plain = Object.create(null) as Record<string, string>;
+      const signed = Object.create(null) as Record<string, string>;
       for (const [k, v] of Object.entries(raw)) {
-        if (v.startsWith("s:")) {
-          const inner = v.slice(2);
-          const dotIdx = inner.lastIndexOf(".");
-          if (dotIdx < 0) continue; // malformed signed cookie — drop
-
-          const val = inner.slice(0, dotIdx);
-          const sig = inner.slice(dotIdx + 1);
-          const expected = crypto.createHmac("sha256", opts.secret).update(val).digest("base64url");
-
-          const sigBuf = Buffer.from(sig, "base64url");
-          const expectedBuf = Buffer.from(expected, "base64url");
-
-          if (sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(sigBuf, expectedBuf)) {
-            verified[k] = val; // valid — attach unsigned value
-          }
-          // invalid signature — silently dropped
-        } else {
-          verified[k] = v; // unsigned cookie — pass through
+        if (!v.startsWith("s:")) {
+          plain[k] = v;
+          continue;
         }
+        const inner = v.slice(2);
+        const dotIdx = inner.lastIndexOf(".");
+        if (dotIdx < 0) continue; // malformed signed cookie — drop
+
+        const val = inner.slice(0, dotIdx);
+        const sigBuf = Buffer.from(inner.slice(dotIdx + 1), "base64url");
+        const expectedBuf = Buffer.from(cookieSignature(k, val, opts.secret), "base64url");
+
+        if (sigBuf.length === expectedBuf.length && crypto.timingSafeEqual(sigBuf, expectedBuf)) {
+          signed[k] = val; // valid — attach unsigned value
+        }
+        // invalid signature — silently dropped
       }
-      req._custom_data = { ...(req._custom_data || {}), [dataKey]: verified };
+      req._custom_data = { ...(req._custom_data || {}), [dataKey]: plain, [signedDataKey]: signed };
     } else {
       req._custom_data = { ...(req._custom_data || {}), [dataKey]: raw };
     }
@@ -141,7 +131,7 @@ export function SimpleJsRequestLoggerPlugin(app: SimpleJsServer, opts?: {
   const log = opts?.logger || console.log;
   const format = opts?.format || "simple";
 
-  app.use(async (req: RequestObject, res: ResponseObject, next: any) => {
+  app.use(async (req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     const start = Date.now();
     const method = req.method || "?";
     const url = req.url || "/";
@@ -171,10 +161,13 @@ export function SimpleJsTimeoutPlugin(app: SimpleJsServer, opts: {
   ms: number;
   message?: string;
 }) {
-  app.use(async (req: RequestObject, res: ResponseObject, next: any) => {
+  app.use(async (req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     const timer = setTimeout(() => {
       if (!res.writableEnded) {
+        // signal the handler (req.abortSignal) so it can stop its work
+        (req as any)._abort?.abort(httpError(408, opts.message || "Request timeout"));
         res.statusCode = 408;
+        if (!res.headersSent) res.setHeader("Connection", "close");
         res.end(opts.message || "Request timeout");
         req.socket.destroy();
       }
@@ -209,7 +202,7 @@ export function SimpleJsCachePlugin(app: SimpleJsServer, opts: {
     directive = `public, max-age=${opts.maxAge ?? 0}`;
   }
 
-  app.use(async (_req: RequestObject, res: ResponseObject, next: any) => {
+  app.use(async (_req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     res.setHeader("Cache-Control", directive);
     await next();
   });
@@ -225,20 +218,13 @@ export function SimpleJsMaintenanceModePlugin(app: SimpleJsServer, opts: {
   message?: string;
   /** IPs that bypass maintenance mode (e.g. your office/server IP) */
   allowIPs?: string[];
-  trustProxy?: boolean;
+  /** true = one trusted proxy in front of the app; a number = that many trusted proxies. */
+  trustProxy?: boolean | number;
 }) {
-  app.use(async (req: RequestObject, res: ResponseObject, next: any) => {
+  app.use(async (req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     if (!opts.enabled) return next();
 
-    const xff2 = String(req.headers["x-forwarded-for"] || "");
-    const raw = opts.trustProxy
-      ? (Array.isArray(req.headers["x-forwarded-for"])
-        ? req.headers["x-forwarded-for"][0]
-        : (xff2.indexOf(",") >= 0 ? xff2.slice(0, xff2.indexOf(",")) : xff2).trim()) || req.socket.remoteAddress || ""
-      : req.socket.remoteAddress || "";
-
-    const ip = normalizeIP(raw);
-
+    const ip = clientIp(req, opts.trustProxy);
     if (opts.allowIPs?.includes(ip)) return next();
 
     res.setHeader("Retry-After", "3600");

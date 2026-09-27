@@ -6,7 +6,7 @@ Allows or blocks requests by client IP address.
 |---|---|---|
 | `ips` | `string[]` | List of IP addresses |
 | `mode` | `"allow" \| "deny"` | `"allow"` = whitelist (only listed IPs pass). `"deny"` = blacklist (listed IPs are blocked). Default: `"allow"` |
-| `trustProxy` | `boolean` | Read IP from `X-Forwarded-For`. Default: `false` |
+| `trustProxy` | `boolean \| number` | Number of trusted proxies in front of the app (`true` = 1). The client IP is taken from `X-Forwarded-For` that many entries from the right. Default: `false` (socket address). See [Rate Limiter](/middlewares/rate-limiter) |
 
 ```ts
 import { SimpleJsIPWhitelistPlugin } from "simplejsnode";

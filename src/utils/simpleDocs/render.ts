@@ -1,5 +1,5 @@
-// Renders a DocModel into a single self-contained HTML page (inline CSS + JS).
-import { DocEndpoint, DocGroup, DocModel, DocsPluginOptions } from "../../typings/docs";
+// Renders a SimpleJsDocModel into a single self-contained HTML page (inline CSS + JS).
+import { SimpleJsDocEndpoint, SimpleJsDocGroup, SimpleJsDocModel, SimpleJsDocsPluginOptions } from "../../typings/docs";
 import { escapeHtml as esc, safeColor, safeSize, safeFontFamily, safeUrl } from "./sanitize";
 
 // Minimal markdown -> html. Links are protocol-checked; all text is escaped.
@@ -38,7 +38,7 @@ function renderMarkdown(src: string): string {
   return out.join("\n");
 }
 
-function themeVars(opts: DocsPluginOptions): string {
+function themeVars(opts: SimpleJsDocsPluginOptions): string {
   const t = opts.theme || {};
   const vars: Record<string, string> = {
     "--font-family": safeFontFamily(t.fontFamily, "ui-sans-serif, system-ui, -apple-system, sans-serif"),
@@ -54,12 +54,12 @@ function themeVars(opts: DocsPluginOptions): string {
 }
 
 // Lowercased, attribute-safe search index for an endpoint.
-function searchIndex(p: DocEndpoint): string {
+function searchIndex(p: SimpleJsDocEndpoint): string {
   const parts = [p.title, p.url, p.method, ...(p.fields || []).map((f) => f.name)];
   return esc(parts.join(" ").toLowerCase());
 }
 
-function pageHtml(p: DocEndpoint): string {
+function pageHtml(p: SimpleJsDocEndpoint): string {
   return `
   <article class="view doc" data-key="page:${esc(p.id)}" data-group="${esc(slugOf(p.group))}" hidden>
     <a class="back" data-nav="group:${esc(slugOf(p.group))}">← ${esc(p.group)}</a>
@@ -91,7 +91,7 @@ function slugOf(name: string): string {
   return (_slugCache[name] ??= name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""));
 }
 
-function groupHtml(g: DocGroup): string {
+function groupHtml(g: SimpleJsDocGroup): string {
   return `
   <article class="view group-view" data-key="group:${esc(g.slug)}" hidden>
     <a class="back" data-nav="home">← All groups</a>
@@ -110,7 +110,7 @@ function groupHtml(g: DocGroup): string {
   </article>`;
 }
 
-export function renderDocs(model: DocModel, opts: DocsPluginOptions): string {
+export function SimpleJsRenderDocs(model: SimpleJsDocModel, opts: SimpleJsDocsPluginOptions): string {
   _slugCache = {};
   const groups = model.groups;
   const site = { name: opts.site?.name || "API", tagline: opts.site?.tagline || "API Documentation" };

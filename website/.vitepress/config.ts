@@ -21,6 +21,7 @@ export default defineConfig({
           { text: 'What is simplejsnode?', link: '/guide/introduction' },
           { text: 'Installation', link: '/guide/installation' },
           { text: 'Quick Start', link: '/guide/quick-start' },
+          { text: 'Upgrading from 4.x', link: '/guide/migration' },
         ],
       },
       {

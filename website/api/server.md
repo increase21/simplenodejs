@@ -7,7 +7,7 @@ Creates and returns an HTTP app instance.
 | Param | Type | Required | Description |
 |------|------|----------|-------------|
 | `controllersDir` | `string` | ✅ | Path to your controllers directory |
-| `bodyLimit` | `string \| number` | ❌ | Global max body size (e.g. `"2mb"`, `"500kb"`, or bytes). Default: `"1mb"` |
+| `bodyLimit` | `string \| number` | ❌ | Global max body size (e.g. `"2mb"`, `"500kb"`, or bytes). Default: `"1mb"`. Endpoints can override it with the descriptor's `bodyLimit` |
 
 ## CreateSimpleJsHttpsServer(options)
 

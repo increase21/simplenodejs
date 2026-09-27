@@ -1,6 +1,6 @@
 # Helmet & Security Headers
 
-## SetHelmet(options?)
+## SimpleJsSetHelmet(options?)
 
 Sets all security response headers in one call. Each header can be individually overridden or disabled.
 
@@ -19,10 +19,10 @@ Pass `false` to disable any individual header. Pass a string to override the val
 
 ```ts
 // All defaults
-app.use(SetHelmet());
+app.use(SimpleJsSetHelmet());
 
 // HTTP server — disable HSTS, relax CSP
-app.use(SetHelmet({
+app.use(SimpleJsSetHelmet({
   hsts: false,
   csp: "default-src 'self'",
   coep: false,
@@ -35,19 +35,19 @@ Each header is also available as a standalone middleware:
 
 | Function | Header |
 |---|---|
-| `SetHSTS(opts?)` | `Strict-Transport-Security` |
-| `SetCSP(policy?)` | `Content-Security-Policy` |
-| `SetFrameGuard(action?)` | `X-Frame-Options` |
-| `SetNoSniff()` | `X-Content-Type-Options` |
-| `SetReferrerPolicy(policy?)` | `Referrer-Policy` |
-| `SetPermissionsPolicy(policy?)` | `Permissions-Policy` |
-| `SetCOEP(value?)` | `Cross-Origin-Embedder-Policy` |
-| `SetCOOP(value?)` | `Cross-Origin-Opener-Policy` |
+| `SimpleJsSetHSTS(opts?)` | `Strict-Transport-Security` |
+| `SimpleJsSetCSP(policy?)` | `Content-Security-Policy` |
+| `SimpleJsSetFrameGuard(action?)` | `X-Frame-Options` |
+| `SimpleJsSetNoSniff()` | `X-Content-Type-Options` |
+| `SimpleJsSetReferrerPolicy(policy?)` | `Referrer-Policy` |
+| `SimpleJsSetPermissionsPolicy(policy?)` | `Permissions-Policy` |
+| `SimpleJsSetCOEP(value?)` | `Cross-Origin-Embedder-Policy` |
+| `SimpleJsSetCOOP(value?)` | `Cross-Origin-Opener-Policy` |
 
 ```ts
-app.use(SetFrameGuard("SAMEORIGIN"));
-app.use(SetCSP("default-src 'self'; img-src *"));
-app.use(SetHSTS({ maxAge: 63072000, preload: true }));
+app.use(SimpleJsSetFrameGuard("SAMEORIGIN"));
+app.use(SimpleJsSetCSP("default-src 'self'; img-src *"));
+app.use(SimpleJsSetHSTS({ maxAge: 63072000, preload: true }));
 ```
 
-> `SetHSTS` is only meaningful on HTTPS. Browsers silently ignore it over plain HTTP.
+> `SimpleJsSetHSTS` is only meaningful on HTTPS. Browsers silently ignore it over plain HTTP.

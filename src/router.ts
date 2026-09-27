@@ -1,60 +1,10 @@
 // router.ts
-import { HttpMethod, RequestObject, ResponseObject } from "./typings/general";
+import { HttpMethod, SimpleJsRequestObject, SimpleJsResponseObject } from "./typings/general";
 import { SimpleJsControllerMeta, SimpleJsCtx, SimpleJsEndpoint } from "./typings/simpletypes";
 import { loadControllers, composeMiddleware, throwHttpError } from "./utils/helpers";
-import { SetBodyLimit } from "./utils/simpleMiddleware";
+import { SimpleJsReadBody, hasRequestBody, SimpleJsReadBodyOptions } from "./utils/body";
 
 let controllers = new Map<string, SimpleJsControllerMeta>();
-let globalBodyLimit: string | number | undefined;
-
-export function setBodyConfig(opts: { limit?: string | number }) {
-  globalBodyLimit = opts.limit;
-}
-
-
-function parseBody(req: RequestObject, res: ResponseObject, limit?: string | number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const r = req as any;
-    const s = res as any;
-    const maxSize = SetBodyLimit(limit ?? globalBodyLimit ?? "1mb");
-    const contentType = r.headers["content-type"] || "";
-    let size = 0;
-    const chunks: any[] = [];
-
-    r.on("data", (chunk: any) => {
-      size += chunk.length;
-      if (maxSize && size > maxSize) {
-        reject({ code: 413, error: "Payload Too Large" });
-        if (!s.writableEnded) s.status(413).end("Payload Too Large");
-        r.destroy();
-        r.socket?.destroy();
-        return;
-      }
-      chunks.push(chunk);
-    });
-
-    r.on("end", () => {
-      if (s.writableEnded) return resolve();
-      try {
-        const body = Buffer.concat(chunks).toString();
-        if (body && contentType.includes("application/json")) {
-          req.body = JSON.parse(body);
-        } else {
-          req.body = body || undefined;
-        }
-        resolve();
-      } catch {
-        reject({ code: 400, error: "Invalid Payload" });
-        if (!s.writableEnded) s.status(400).end("Invalid Payload");
-      }
-    });
-
-    r.on("error", () => {
-      reject({ code: 400, error: "Request stream ended" });
-      if (!s.writableEnded) s.status(400).end("Request stream ended");
-    });
-  });
-}
 
 const UNSAFE_METHODS = new Set([
   ...Object.getOwnPropertyNames(Object.prototype),
@@ -64,7 +14,7 @@ export function setControllersDir(dir: string) {
   controllers = loadControllers(dir);
 }
 
-export async function route(req: RequestObject, res: ResponseObject) {
+export async function route(req: SimpleJsRequestObject, res: SimpleJsResponseObject) {
   let parts = (req._end_point_path || []).map(part => part.toLowerCase().replace(/\-{1}\w{1}/g, match => match.replace("-", "").toUpperCase()))
   let parthLen = parts.length
   if (parthLen < 2) return throwHttpError(404, "The requested resource does not exist")
@@ -85,7 +35,13 @@ export async function route(req: RequestObject, res: ResponseObject) {
     query: req.query,
     method: httpMethod,
     customData: req._custom_data,
-    readBody: (limit?: string | number) => parseBody(req, res, limit).then(() => { ctx.body = req.body; }),
+    readBody: (opts?: string | number | SimpleJsReadBodyOptions) => {
+      const options = typeof opts === "object" ? opts : { limit: opts };
+      return SimpleJsReadBody(req, options).then(body => {
+        if ((options.as ?? "auto") === "auto") ctx.body = body;
+        return body;
+      });
+    },
   }
 
   const ControllerClass = meta.Controller;
@@ -135,15 +91,12 @@ export async function route(req: RequestObject, res: ResponseObject) {
   if (id.length && !descriptor.id) return throwHttpError(404, "Resource not found")
   if (descriptor.id === "required" && !id.length) return throwHttpError(404, "Resource not found")
 
-  // Auto-parse body unless the endpoint opts out or body was already consumed
-  if (descriptor.ignoreStream !== true && req.body === undefined) {
-    const r = req.headers
-    const hasBody = r["content-type"] || (r["content-length"] && r["content-length"] !== "0")
-    if (hasBody) {
-      await parseBody(req, res, descriptor.bodyLimit);
-      if (res.writableEnded) return;
-      ctx.body = req.body;
-    }
+  // Read the body for descriptor handlers unless the endpoint wants the raw stream.
+  // Inline (void-returning) methods read it themselves with ctx.readBody() / SimpleJsReadBody().
+  if (descriptor.ignoreStream !== true && hasRequestBody(req)) {
+    await SimpleJsReadBody(req, { limit: descriptor.bodyLimit })
+    if (res.writableEnded) return
+    ctx.body = req.body
   }
 
   // Run endpoint-level middlewares before the handler

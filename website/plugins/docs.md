@@ -8,11 +8,11 @@ Serves a self-contained API documentation page built from a folder of markdown f
 | `path` | `string` | Mount path. Default: `/docs` |
 | `site` | `{ name?, tagline? }` | Title + tagline shown on the landing page |
 | `vars` | `Record<string,string>` | Values usable as `{{var}}` inside docs (e.g. `base_url`). **Never put secrets here** — they render into a public page |
-| `theme` | `DocsTheme` | Colors and font sizes (validated before use) |
+| `theme` | `SimpleJsDocsTheme` | Colors and font sizes (validated before use) |
 | `enabled` | `boolean` | Whether the route is served. Default: `true`. Set `false` in production to hide your API surface |
 | `watch` | `boolean` | Rebuild when the docs folder changes (dev). Default: `false` |
 
-`DocsTheme` fields (all optional): `textColor`, `fontSize`, `fontFamily`, `sidebarBg`, `sidebarText`, `sidebarAccent`, `sidebarFontSize`, `accent`.
+`SimpleJsDocsTheme` fields (all optional): `textColor`, `fontSize`, `fontFamily`, `sidebarBg`, `sidebarText`, `sidebarAccent`, `sidebarFontSize`, `accent`.
 
 ```ts
 import { CreateSimpleJsHttpServer, SimpleJsDocsPlugin } from "simplejsnode";
@@ -64,7 +64,7 @@ is required this endpoint returns `201` instead of `200`.
 
 ## Helpers
 
-`loadDocs(dir, vars)` returns the parsed `DocModel`, and `renderDocs(model, opts)` returns the HTML string — use these directly if you want to serve or export the page yourself.
+`SimpleJsLoadDocs(dir, vars)` returns the parsed `SimpleJsDocModel`, and `SimpleJsRenderDocs(model, opts)` returns the HTML string — use these directly if you want to serve or export the page yourself.
 
 ## Security
 

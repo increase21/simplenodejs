@@ -3,7 +3,7 @@
 Plugins are registered with [`app.registerPlugin`](/api/app#app-registerplugin-plugin). simplejsnode ships the following built-in plugins:
 
 - [Security](/plugins/security) — combines CORS, Helmet, and rate limiting
-- [Cookies](/plugins/cookies) — cookie parsing and signed cookies (`SignCookie`)
+- [Cookies](/plugins/cookies) — cookie parsing and signed cookies (`SimpleJsSignCookie`)
 - [IP Whitelist](/plugins/ip-whitelist) — allow/deny by client IP
 - [Request Logger](/plugins/request-logger) — log every completed request
 - [Timeout](/plugins/timeout) — close slow requests with `503`

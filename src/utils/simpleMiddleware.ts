@@ -1,23 +1,39 @@
-import { RequestObject, ResponseObject } from "../typings/general";
+import { SimpleJsRequestObject, SimpleJsResponseObject } from "../typings/general";
 import { SimpleJSRateLimitType } from "../typings/simpletypes";
-import { throwHttpError } from "./helpers";
+import net from "node:net";
+import { clientIp, throwHttpError } from "./helpers";
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
-export function SetCORS(opts?: {
-  origin?: string;
+export type SimpleJsCorsOrigin = string | string[] | ((origin: string) => boolean);
+
+export function SimpleJsSetCORS(opts?: {
+  /** Allowed origin(s): "*", an exact origin, a list, or a predicate. Required with `credentials`. */
+  origin?: SimpleJsCorsOrigin;
   methods?: string;
   headers?: string;
   credentials?: boolean;
 }) {
-  return async (req: RequestObject, res: ResponseObject, next: any) => {
-    if (opts?.credentials) {
-      const reqOrigin = req.headers.origin;
-      if (!reqOrigin) throwHttpError(403, "CORS Error: Origin header is required when credentials are enabled");
-      if (opts.origin && reqOrigin !== opts.origin) throwHttpError(403, "CORS Error: Origin not allowed");
-      res.setHeader("Access-Control-Allow-Origin", reqOrigin!);
-      res.setHeader("Access-Control-Allow-Credentials", "true");
+  const origin = opts?.origin;
+  if (opts?.credentials && (!origin || origin === "*" || (Array.isArray(origin) && origin.includes("*")))) {
+    throw new Error("SimpleJsSetCORS: `credentials: true` requires an explicit `origin` allowlist (not \"*\")");
+  }
+  const wildcard = !origin || origin === "*";
+  const allowed = (o: string): boolean =>
+    typeof origin === "function" ? !!origin(o) : Array.isArray(origin) ? origin.includes(o) : o === origin;
+
+  return async (req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
+    const reqOrigin = req.headers.origin;
+
+    if (wildcard) {
+      res.setHeader("Access-Control-Allow-Origin", "*");
     } else {
-      res.setHeader("Access-Control-Allow-Origin", opts?.origin || "*");
+      // The response depends on Origin, so shared caches must key on it
+      res.setHeader("Vary", "Origin");
+      // No Origin header: same-origin or non-browser request, CORS does not apply
+      if (!reqOrigin) return next();
+      if (!allowed(reqOrigin)) throwHttpError(403, "CORS Error: Origin not allowed");
+      res.setHeader("Access-Control-Allow-Origin", reqOrigin);
+      if (opts?.credentials) res.setHeader("Access-Control-Allow-Credentials", "true");
     }
     res.setHeader("Access-Control-Allow-Headers", opts?.headers || "Origin, X-Requested-With, Content-Type, Accept, Authorization");
     res.setHeader("Access-Control-Allow-Methods", opts?.methods || "GET, POST, DELETE, PUT, PATCH");
@@ -32,79 +48,79 @@ export function SetCORS(opts?: {
 
 // ─── HSTS ─────────────────────────────────────────────────────────────────────
 // Only meaningful on HTTPS. Browsers ignore this header over plain HTTP.
-export function SetHSTS(opts?: { maxAge?: number; includeSubDomains?: boolean; preload?: boolean }) {
+export function SimpleJsSetHSTS(opts?: { maxAge?: number; includeSubDomains?: boolean; preload?: boolean }) {
   let value = `max-age=${opts?.maxAge ?? 31536000}`;
   if (opts?.includeSubDomains !== false) value += "; includeSubDomains";
   if (opts?.preload) value += "; preload";
-  return async (_req: RequestObject, res: ResponseObject, next: any) => {
+  return async (_req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     res.setHeader("Strict-Transport-Security", value);
     await next();
   };
 }
 
 // ─── Content Security Policy ──────────────────────────────────────────────────
-export function SetCSP(policy = "default-src 'none'") {
+export function SimpleJsSetCSP(policy = "default-src 'none'") {
   const safePolicy = policy.replace(/[\r\n]/g, "");
-  return async (_req: RequestObject, res: ResponseObject, next: any) => {
+  return async (_req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     res.setHeader("Content-Security-Policy", safePolicy);
     await next();
   };
 }
 
 // ─── X-Frame-Options (clickjacking) ──────────────────────────────────────────
-export function SetFrameGuard(action: "DENY" | "SAMEORIGIN" = "DENY") {
-  return async (_req: RequestObject, res: ResponseObject, next: any) => {
+export function SimpleJsSetFrameGuard(action: "DENY" | "SAMEORIGIN" = "DENY") {
+  return async (_req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     res.setHeader("X-Frame-Options", action);
     await next();
   };
 }
 
 // ─── X-Content-Type-Options (MIME sniffing) ───────────────────────────────────
-export function SetNoSniff() {
-  return async (_req: RequestObject, res: ResponseObject, next: any) => {
+export function SimpleJsSetNoSniff() {
+  return async (_req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     res.setHeader("X-Content-Type-Options", "nosniff");
     await next();
   };
 }
 
 // ─── Referrer-Policy ──────────────────────────────────────────────────────────
-export function SetReferrerPolicy(policy = "no-referrer") {
+export function SimpleJsSetReferrerPolicy(policy = "no-referrer") {
   const safePolicy = policy.replace(/[\r\n]/g, "");
-  return async (_req: RequestObject, res: ResponseObject, next: any) => {
+  return async (_req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     res.setHeader("Referrer-Policy", safePolicy);
     await next();
   };
 }
 
 // ─── Permissions-Policy (browser feature control) ────────────────────────────
-export function SetPermissionsPolicy(policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), display-capture=()") {
+export function SimpleJsSetPermissionsPolicy(policy = "camera=(), microphone=(), geolocation=(), payment=(), usb=(), display-capture=()") {
   const safePolicy = policy.replace(/[\r\n]/g, "");
-  return async (_req: RequestObject, res: ResponseObject, next: any) => {
+  return async (_req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     res.setHeader("Permissions-Policy", safePolicy);
     await next();
   };
 }
 
 // ─── Cross-Origin-Embedder-Policy ────────────────────────────────────────────
-export function SetCOEP(value = "require-corp") {
+export function SimpleJsSetCOEP(value = "require-corp") {
   const safeValue = value.replace(/[\r\n]/g, "");
-  return async (_req: RequestObject, res: ResponseObject, next: any) => {
+  return async (_req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     res.setHeader("Cross-Origin-Embedder-Policy", safeValue);
     await next();
   };
 }
 
 // ─── Cross-Origin-Opener-Policy ──────────────────────────────────────────────
-export function SetCOOP(value = "same-origin") {
+export function SimpleJsSetCOOP(value = "same-origin") {
   const safeValue = value.replace(/[\r\n]/g, "");
-  return async (_req: RequestObject, res: ResponseObject, next: any) => {
+  return async (_req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     res.setHeader("Cross-Origin-Opener-Policy", safeValue);
     await next();
   };
 }
 
 // ─── Helmet (security headers bundle, excludes CORS) ─────────────────────────
-export function SetHelmet(opts?: {
+export function SimpleJsSetHelmet(opts?: {
   hsts?: false | { maxAge?: number; includeSubDomains?: boolean; preload?: boolean };
   csp?: false | string;
   frameGuard?: false | "DENY" | "SAMEORIGIN";
@@ -114,7 +130,7 @@ export function SetHelmet(opts?: {
   coep?: false | string;
   coop?: false | string;
 }) {
-  return async (_req: RequestObject, res: ResponseObject, next: any) => {
+  return async (_req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: any) => {
     if (opts?.noSniff !== false)
       res.setHeader("X-Content-Type-Options", "nosniff");
 
@@ -151,51 +167,59 @@ export function SetHelmet(opts?: {
 // ─── Rate Limiter ─────────────────────────────────────────────────────────────
 const RATE_LIMIT_MAX_STORE = 100_000;
 
-export function SetRateLimiter(opts: SimpleJSRateLimitType) {
-  const store = new Map<string, { count: number; ts: number }>();
+// IPv6 clients usually control a whole /64, so they are limited per /64 instead of per address
+function rateLimitIpKey(ip: string): string {
+  if (!net.isIPv6(ip)) return ip;
+  const addr = ip.split("%")[0];
+  const [h, t] = addr.includes("::") ? addr.split("::") : [addr, undefined];
+  const head = h ? h.split(":") : [];
+  const tail = t ? t.split(":") : [];
+  const groups = t === undefined ? head : [...head, ...Array(Math.max(0, 8 - head.length - tail.length)).fill("0"), ...tail];
+  return groups.slice(0, 4).map(g => parseInt(g || "0", 16).toString(16)).join(":") + "::/64";
+}
+
+export function SimpleJsSetRateLimiter(opts: SimpleJSRateLimitType) {
+  // Sliding window: the previous window's count is weighted by how much of it still overlaps,
+  // so a client cannot send 2x max by bursting at a window boundary.
+  const store = new Map<string, { start: number; count: number; prev: number }>();
+  const prefixes = opts.urlMatch?.map(u => "/" + u.toLowerCase().replace(/^\/+|\/+$/g, ""));
+
   setInterval(() => {
     const now = Date.now();
     for (const [k, v] of store) {
-      if (now - v.ts > opts.windowMs) store.delete(k);
+      if (now - v.start >= 2 * opts.windowMs) store.delete(k);
     }
   }, opts.windowMs)?.unref();
 
-  return async (req: RequestObject, res: ResponseObject, next: () => Promise<any> | void) => {
-    //if there's urlMatch and the request url doesn't match a prefix, skip
-    const reqUrl = req.url || "";
-    const urlMatch = opts.urlMatch ? opts.urlMatch.find((u) => reqUrl.startsWith(u)) : "";
-    if (opts.urlMatch && !urlMatch) return next();
+  return async (req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: () => Promise<any> | void) => {
+    // Match on the normalized path the router uses, so case or slash tricks cannot skip the limiter
+    const path = req.path || "/";
+    const urlMatch = prefixes ? prefixes.find(u => path === u || path.startsWith(u === "/" ? u : u + "/")) : "";
+    if (prefixes && urlMatch === undefined) return next();
 
-    const xff = String(req.headers["x-forwarded-for"] || "");
-    const ip = opts.trustProxy
-      ? (Array.isArray(req.headers["x-forwarded-for"])
-        ? req.headers["x-forwarded-for"][0]
-        : (xff.indexOf(",") >= 0 ? xff.slice(0, xff.indexOf(",")) : xff).trim()) || req.socket.remoteAddress || "unknown"
-      : req.socket.remoteAddress || "unknown";
-
-    const finalIp = String(opts.keyGenerator?.(req) || ip || "unknown");
+    const finalIp = String(opts.keyGenerator?.(req) || rateLimitIpKey(clientIp(req, opts.trustProxy)) || "unknown");
     const key = `${finalIp}:${urlMatch}`;
     const now = Date.now();
 
-    const entry = store.get(key as string) || { count: 0, ts: now };
-    if (now - entry.ts > opts.windowMs) {
+    let entry = store.get(key);
+    if (!entry) {
+      if (store.size >= RATE_LIMIT_MAX_STORE) store.delete(store.keys().next().value!); // evict oldest entry
+      entry = { start: now, count: 0, prev: 0 };
+      store.set(key, entry);
+    } else if (now - entry.start >= opts.windowMs) {
+      const elapsedWindows = Math.floor((now - entry.start) / opts.windowMs);
+      entry.prev = elapsedWindows === 1 ? entry.count : 0;
       entry.count = 0;
-      entry.ts = now;
+      entry.start += elapsedWindows * opts.windowMs;
+    }
+
+    const overlap = 1 - (now - entry.start) / opts.windowMs;
+    if (entry.prev * overlap + entry.count >= opts.max) {
+      res.setHeader("Retry-After", Math.max(1, Math.ceil((entry.start + opts.windowMs - now) / 1000)));
+      throwHttpError(429, "Too Many Requests. Please try again later.");
     }
 
     entry.count++;
-
-    if (!store.has(key) && store.size >= RATE_LIMIT_MAX_STORE) {
-      store.delete(store.keys().next().value!); // evict oldest entry
-    }
-    store.set(key as string, entry);
-
-    if (entry.count > opts.max) {
-      res.setHeader("Retry-After", Math.ceil(opts.windowMs / 1000));
-      if (!res.writableEnded) throwHttpError(429, "Too Many Requests. Please try again later.");
-      return;
-    }
-
     await next();
   };
 }

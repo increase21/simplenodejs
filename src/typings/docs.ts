@@ -1,18 +1,18 @@
 // Types for the SimpleJs API docs plugin (SimpleJsDocsPlugin).
 
-export interface DocField {
+export interface SimpleJsDocField {
   name: string;
   type?: string;
   required?: boolean;
   desc?: string;
 }
 
-export interface DocHeader {
+export interface SimpleJsDocHeader {
   name: string;
   value: string;
 }
 
-export interface DocEndpoint {
+export interface SimpleJsDocEndpoint {
   /** Stable slug derived from the title; used for in-page navigation. */
   id: string;
   group: string;
@@ -20,23 +20,23 @@ export interface DocEndpoint {
   title: string;
   method: string;
   url: string;
-  headers?: DocHeader[];
-  fields?: DocField[];
+  headers?: SimpleJsDocHeader[];
+  fields?: SimpleJsDocField[];
   response?: string;
   /** Raw markdown prose body for the endpoint. */
   body: string;
 }
 
-export interface DocGroup {
+export interface SimpleJsDocGroup {
   name: string;
   slug: string;
   count: number;
-  sections: Record<string, DocEndpoint[]>;
+  sections: Record<string, SimpleJsDocEndpoint[]>;
 }
 
-export interface DocModel {
-  endpoints: DocEndpoint[];
-  groups: DocGroup[];
+export interface SimpleJsDocModel {
+  endpoints: SimpleJsDocEndpoint[];
+  groups: SimpleJsDocGroup[];
 }
 
 /**
@@ -44,7 +44,7 @@ export interface DocModel {
  * (colors must be hex/rgb/hsl/named; sizes must be a number + unit). Invalid
  * values are ignored and the default is used.
  */
-export interface DocsTheme {
+export interface SimpleJsDocsTheme {
   /** Body text color. */
   textColor?: string;
   /** Body font size, e.g. "15px" / "1rem". */
@@ -63,7 +63,7 @@ export interface DocsTheme {
   accent?: string;
 }
 
-export interface DocsPluginOptions {
+export interface SimpleJsDocsPluginOptions {
   /** Folder containing the `.md` docs. Required. */
   dir: string;
   /** Mount path. Default `"/docs"`. */
@@ -76,7 +76,7 @@ export interface DocsPluginOptions {
    */
   vars?: Record<string, string>;
   /** Theme overrides (colors, font sizes). Validated before use. */
-  theme?: DocsTheme;
+  theme?: SimpleJsDocsTheme;
   /**
    * Whether the docs route is served. Default `true`.
    * The docs page enumerates every endpoint, its headers and payloads — set

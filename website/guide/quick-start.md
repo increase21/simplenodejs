@@ -3,9 +3,9 @@
 ```ts
 import {
   CreateSimpleJsHttpServer,
-  SetHelmet,
-  SetCORS,
-  SetRateLimiter,
+  SimpleJsSetHelmet,
+  SimpleJsSetCORS,
+  SimpleJsSetRateLimiter,
 } from "simplejsnode";
 
 const app = CreateSimpleJsHttpServer({
@@ -13,9 +13,9 @@ const app = CreateSimpleJsHttpServer({
   bodyLimit: "2mb",
 });
 
-app.use(SetCORS());
-app.use(SetHelmet());
-app.use(SetRateLimiter({ windowMs: 60_000, max: 100 }));
+app.use(SimpleJsSetCORS());
+app.use(SimpleJsSetHelmet());
+app.use(SimpleJsSetRateLimiter({ windowMs: 60_000, max: 100 }));
 
 app.listen(3000, () => {
   console.log("Server running on http://localhost:3000");

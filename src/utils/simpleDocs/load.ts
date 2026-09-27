@@ -1,10 +1,10 @@
-// Loads a folder of .md docs into a DocModel.
+// Loads a folder of .md docs into a SimpleJsDocModel.
 // Format: one file per area, a single top frontmatter for group/section
 // defaults, then each endpoint as a "## Title" heading + a ```yaml metadata
 // block + markdown prose.
 import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { join, resolve, sep } from "node:path";
-import { DocEndpoint, DocGroup, DocModel } from "../../typings/docs";
+import { SimpleJsDocEndpoint, SimpleJsDocGroup, SimpleJsDocModel } from "../../typings/docs";
 
 const slug = (s: string): string =>
   String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -104,11 +104,11 @@ function loadFile(raw: string): Record<string, any>[] {
  * Only files resolving inside `dir` are read (symlinks pointing elsewhere are
  * skipped), and `dir` is never derived from request input.
  */
-export function loadDocs(dir: string, vars: Record<string, string> = {}): DocModel {
+export function SimpleJsLoadDocs(dir: string, vars: Record<string, string> = {}): SimpleJsDocModel {
   const realDir = realpathSync(resolve(dir));
   const files = readdirSync(realDir).filter((f) => f.endsWith(".md")).sort();
 
-  const endpoints: DocEndpoint[] = [];
+  const endpoints: SimpleJsDocEndpoint[] = [];
   const seen = new Set<string>();
 
   for (const f of files) {
@@ -143,8 +143,8 @@ export function loadDocs(dir: string, vars: Record<string, string> = {}): DocMod
   }
 
   // group -> { name, slug, sections, count }
-  const groups: DocGroup[] = [];
-  const byName = new Map<string, DocGroup>();
+  const groups: SimpleJsDocGroup[] = [];
+  const byName = new Map<string, SimpleJsDocGroup>();
   for (const ep of endpoints) {
     let g = byName.get(ep.group);
     if (!g) {

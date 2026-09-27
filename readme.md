@@ -40,9 +40,9 @@ Requires Node.js `>=20`.
 ```ts
 import {
   CreateSimpleJsHttpServer,
-  SetHelmet,
-  SetCORS,
-  SetRateLimiter,
+  SimpleJsSetHelmet,
+  SimpleJsSetCORS,
+  SimpleJsSetRateLimiter,
 } from "simplejsnode";
 
 const app = CreateSimpleJsHttpServer({
@@ -50,9 +50,9 @@ const app = CreateSimpleJsHttpServer({
   bodyLimit: "2mb",
 });
 
-app.use(SetCORS());
-app.use(SetHelmet());
-app.use(SetRateLimiter({ windowMs: 60_000, max: 100 }));
+app.use(SimpleJsSetCORS());
+app.use(SimpleJsSetHelmet());
+app.use(SimpleJsSetRateLimiter({ windowMs: 60_000, max: 100 }));
 
 app.listen(3000, () => {
   console.log("Server running on http://localhost:3000");
@@ -65,7 +65,7 @@ The complete guides and API reference live at **[increase21.github.io/simplenode
 
 | Section | Pages |
 |---|---|
-| **Guide** | [Introduction](https://increase21.github.io/simplenodejs/guide/introduction) · [Installation](https://increase21.github.io/simplenodejs/guide/installation) · [Quick Start](https://increase21.github.io/simplenodejs/guide/quick-start) |
+| **Guide** | [Introduction](https://increase21.github.io/simplenodejs/guide/introduction) · [Installation](https://increase21.github.io/simplenodejs/guide/installation) · [Quick Start](https://increase21.github.io/simplenodejs/guide/quick-start) · [Upgrading from 4.x](https://increase21.github.io/simplenodejs/guide/migration) |
 | **Core API** | [Server](https://increase21.github.io/simplenodejs/api/server) · [Controllers](https://increase21.github.io/simplenodejs/api/controllers) · [Context](https://increase21.github.io/simplenodejs/api/context) · [Request & Response](https://increase21.github.io/simplenodejs/api/req-res) · [Middleware & Plugins API](https://increase21.github.io/simplenodejs/api/app) |
 | **Middlewares** | [Body Parsing](https://increase21.github.io/simplenodejs/middlewares/body-parsing) · [CORS](https://increase21.github.io/simplenodejs/middlewares/cors) · [Helmet & Security Headers](https://increase21.github.io/simplenodejs/middlewares/helmet) · [Rate Limiter](https://increase21.github.io/simplenodejs/middlewares/rate-limiter) |
 | **Plugins** | [Overview](https://increase21.github.io/simplenodejs/plugins/) — security, cookies, IP whitelist, request logger, timeout, cache, maintenance mode, API docs |

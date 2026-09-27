@@ -3,14 +3,14 @@
 // app and options; it registers a middleware that answers the docs path.
 import { watch } from "node:fs";
 import { resolve } from "node:path";
-import { RequestObject, ResponseObject } from "../../typings/general";
+import { SimpleJsRequestObject, SimpleJsResponseObject } from "../../typings/general";
 import { SimpleJsServer } from "../../typings/simpletypes";
-import { DocsPluginOptions } from "../../typings/docs";
-import { loadDocs } from "./load";
-import { renderDocs } from "./render";
+import { SimpleJsDocsPluginOptions } from "../../typings/docs";
+import { SimpleJsLoadDocs } from "./load";
+import { SimpleJsRenderDocs } from "./render";
 
-export { loadDocs } from "./load";
-export { renderDocs } from "./render";
+export { SimpleJsLoadDocs } from "./load";
+export { SimpleJsRenderDocs } from "./render";
 
 /**
  * Mounts an API documentation page.
@@ -24,14 +24,14 @@ export { renderDocs } from "./render";
  *   overrides a stricter global CSP for the docs route so the page still works.
  * - `vars` render into a public page — never put secrets in them.
  */
-export function SimpleJsDocsPlugin(app: SimpleJsServer, opts: DocsPluginOptions): void {
+export function SimpleJsDocsPlugin(app: SimpleJsServer, opts: SimpleJsDocsPluginOptions): void {
   if (!opts || !opts.dir) throw new Error("SimpleJsDocsPlugin requires opts.dir");
   if (opts.enabled === false) return;
 
-  const mount = "/" + String(opts.path || "/docs").replace(/^\/+|\/+$/g, "");
+  const mount = "/" + String(opts.path || "/docs").replace(/^\/+|\/+$/g, "").toLowerCase();
   const dir = resolve(opts.dir);
 
-  const build = (): string => renderDocs(loadDocs(dir, opts.vars || {}), opts);
+  const build = (): string => SimpleJsRenderDocs(SimpleJsLoadDocs(dir, opts.vars || {}), opts);
 
   let html = build();
 
@@ -49,9 +49,8 @@ export function SimpleJsDocsPlugin(app: SimpleJsServer, opts: DocsPluginOptions)
     }
   }
 
-  app.use(async (req: RequestObject, res: ResponseObject, next: () => Promise<any> | void) => {
-    const path = "/" + String(req.url || "").split("?")[0].replace(/^\/+|\/+$/g, "");
-    if (path !== mount) return next();
+  app.use(async (req: SimpleJsRequestObject, res: SimpleJsResponseObject, next: () => Promise<any> | void) => {
+    if (req.path !== mount) return next();
 
     if ((req.method || "GET").toUpperCase() !== "GET") {
       res.statusCode = 405;

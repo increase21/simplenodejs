@@ -1,24 +1,28 @@
 export { CreateSimpleJsHttpServer, CreateSimpleJsHttpsServer } from "./server";
 export {
-  SetCORS,
-  SetHSTS,
-  SetCSP,
-  SetFrameGuard,
-  SetNoSniff,
-  SetReferrerPolicy,
-  SetPermissionsPolicy,
-  SetCOEP,
-  SetCOOP,
-  SetHelmet,
-  SetRateLimiter,
+  SimpleJsSetCORS,
+  SimpleJsSetHSTS,
+  SimpleJsSetCSP,
+  SimpleJsSetFrameGuard,
+  SimpleJsSetNoSniff,
+  SimpleJsSetReferrerPolicy,
+  SimpleJsSetPermissionsPolicy,
+  SimpleJsSetCOEP,
+  SimpleJsSetCOOP,
+  SimpleJsSetHelmet,
+  SimpleJsSetRateLimiter,
 } from "./utils/simpleMiddleware"
 export * from "./utils/simplePlugins"
-export { SimpleJsDocsPlugin, loadDocs, renderDocs } from "./utils/simpleDocs";
+export { SimpleJsReadBody } from "./utils/body";
+export { httpError as SimpleJsHttpError } from "./utils/helpers";
+export type { SimpleJsCorsOrigin } from "./utils/simpleMiddleware";
+export type { SimpleJsReadBodyOptions, SimpleJsReadBodyAs } from "./utils/body";
+export { SimpleJsDocsPlugin, SimpleJsLoadDocs, SimpleJsRenderDocs } from "./utils/simpleDocs";
 export type {
-  DocsPluginOptions, DocsTheme, DocModel, DocGroup, DocEndpoint, DocField, DocHeader
+  SimpleJsDocsPluginOptions, SimpleJsDocsTheme, SimpleJsDocModel, SimpleJsDocGroup, SimpleJsDocEndpoint, SimpleJsDocField, SimpleJsDocHeader
 } from "./typings/docs";
-export type { RequestObject, ResponseObject } from "./typings/general";
+export type { SimpleJsRequestObject, SimpleJsResponseObject } from "./typings/general";
 export type {
   SimpleJsCtx, SimpleJsEndpoint, SimpleJsHttpsServer,
-  Middleware as SimpleJsMiddleware, ErrorMiddleware as SimpleJsErrorMiddleware
+  SimpleJsMiddleware, SimpleJsErrorMiddleware
 } from "./typings/simpletypes";

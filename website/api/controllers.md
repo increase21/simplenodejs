@@ -42,6 +42,22 @@ export default class AuthController {
 
 > `this.ctx` is injected automatically by the router on every request. You do not need to pass it around manually — it is always available anywhere in the class.
 
+## Request body
+
+- **Endpoint handlers** get `ctx.body` automatically, read after the descriptor is matched. Set `ignoreStream: true` on the descriptor to receive the raw stream instead, and `bodyLimit` to change the size limit for that endpoint.
+- **Inline methods** read it themselves when they need it:
+
+```ts
+export default class FilesController {
+  async import(): Promise<void> {
+    const rows = await this.ctx.readBody("50mb");   // limit for this call
+    // ...
+  }
+}
+```
+
+See [Body Parsing](/middlewares/body-parsing) for content types and error handling.
+
 ## Endpoint Naming
 
 Controller methods use **camelCase** and are exposed as **kebab-case** URLs.
